@@ -9,19 +9,23 @@ This guide provides comprehensive instructions for deploying the NICE Scripting 
 ### System Requirements
 - **PHP**: 8.1 or higher
 - **Node.js**: 16.x or higher
+- **Deno**: 1.40+ (for script execution runtime)
 - **Database**: MySQL 8.0+ or PostgreSQL 13+
 - **Redis**: 6.0+ (for caching and queues)
 - **Web Server**: Nginx or Apache
 - **Docker**: 20.10+ (for containerized deployment)
 - **Docker Compose**: 2.0+ (for orchestration)
+- **Prometheus**: 2.40+ (for metrics collection)
+- **Grafana**: 9.0+ (for metrics visualization)
 
 ### Additional Requirements for Enterprise Features
-- **Prometheus**: For metrics collection
-- **Grafana**: For metrics visualization (optional)
 - **Git**: For version control and CI/CD
 - **GitHub Actions**: For automated CI/CD pipeline
 - **WebSocket Server**: For real-time metrics updates
 - **Node.js**: For frontend build and Monaco editor
+- **AlertManager**: For alert routing and notifications
+- **Node Exporter**: For system metrics collection
+- **Redis/MySQL Exporters**: For service metrics collection
 
 ### Required PHP Extensions
 ```bash
@@ -192,6 +196,8 @@ DENO_SERVICE_URL=http://deno-executor:8080
 DENO_EXECUTOR_TIMEOUT=30
 DENO_EXECUTOR_MEMORY_LIMIT=256
 DENO_EXECUTOR_CPU_LIMIT=0.5
+DENO_EXECUTOR_HEALTH_CHECK_INTERVAL=30
+DENO_EXECUTOR_MAX_CONCURRENT_EXECUTIONS=50
 
 # Security
 SCRIPT_DATABASE_ACCESS=true
@@ -213,6 +219,14 @@ KILL_SWITCH_MEMORY_THRESHOLD=80
 KILL_SWITCH_CPU_THRESHOLD=85
 KILL_SWITCH_CONCURRENT_THRESHOLD=10
 KILL_SWITCH_FAILURE_RATE_THRESHOLD=0.5
+
+# Watchdog Configuration
+WATCHDOG_ENABLED=true
+WATCHDOG_CHECK_INTERVAL=5
+WATCHDOG_MEMORY_THRESHOLD=80
+WATCHDOG_CPU_THRESHOLD=85
+WATCHDOG_EXECUTION_TIMEOUT=300
+WATCHDOG_AUTO_TERMINATE=true
 
 # Prometheus Metrics
 PROMETHEUS_ENABLED=true
@@ -265,21 +279,26 @@ The project includes a comprehensive CI/CD pipeline with the following stages:
 - **AST Security Analysis**: Automated security scanning
 
 #### 2. Security Scanning
-- **Static Analysis**: PHPStan level 8 analysis
+- **Static Analysis**: PHPStan level 8 analysis and Psalm security-focused analysis
 - **Security Audit**: Composer audit for vulnerabilities
+- **AST Security Analysis**: Automated security validation of script templates
 - **Code Quality**: Laravel Pint formatting checks
-- **Container Scanning**: Trivy vulnerability scanning
+- **Container Scanning**: Trivy vulnerability scanning for Docker images
+- **Dependency Scanning**: Automated vulnerability detection in PHP and Node.js dependencies
 
 #### 3. Docker Build
 - **Multi-stage Build**: Development and production targets
 - **Security Scanning**: Container vulnerability scanning
 - **Health Checks**: Automated health verification
+- **Deno Sidecar**: Deno executor container build and testing
 
 #### 4. Deployment Stages
 - **Test**: Automated testing across environments
 - **Code Quality**: Quality assurance checks
 - **Security**: Security vulnerability scanning
 - **Docker**: Container build and test
+- **Deno Testing**: Deno sidecar functionality testing
+- **Integration**: Full stack integration testing
 
 ## Web Server Configuration
 
@@ -290,6 +309,8 @@ The included Docker configuration provides:
 - Security headers
 - Static asset optimization
 - Health check endpoints
+- Deno sidecar proxy configuration
+- Prometheus metrics endpoint proxying
 
 ### SSL/TLS Configuration
 ```nginx
@@ -317,6 +338,9 @@ The Docker setup includes Supervisor for process management:
 - **php-fpm**: PHP FastCGI Process Manager
 - **laravel-worker**: Queue worker processes
 - **laravel-schedule**: Cron job scheduler
+- **deno-executor**: Deno script execution service
+- **prometheus**: Metrics collection service
+- **grafana**: Metrics visualization service
 
 ### Manual Supervisor Configuration
 ```ini
@@ -377,6 +401,12 @@ SCRIPT_RATE_LIMIT_PER_MINUTE=100
 SECRET_ENCRYPTION_ENABLED=true
 SECRET_ROTATION_ENABLED=true
 SECRET_EXPIRATION_DAYS=90
+
+# Deno sidecar security
+DENO_EXECUTOR_SECURE_MODE=true
+DENO_EXECUTOR_NETWORK_ACCESS=false
+DENO_EXECUTOR_FILE_ACCESS=false
+DENO_EXECUTOR_ENV_ACCESS=false
 ```
 
 ## Database Optimization
@@ -492,7 +522,7 @@ curl http://localhost:8080/health
 # - Info alerts: Webhook only
 ```
 
-#### Kill-Switch Monitoring
+#### Kill-Switch and Watchdog Monitoring
 ```bash
 # Kill-switch status endpoint
 curl http://localhost/api/kill-switch/status
@@ -513,6 +543,18 @@ curl http://localhost/api/kill-switch/status
         "failure_rate": 0.02
     }
 }
+
+# Watchdog service status
+curl http://localhost/api/watchdog/status
+
+# Expected response:
+{
+    "enabled": true,
+    "monitoring_active": true,
+    "active_executions": 3,
+    "terminated_executions": 2,
+    "last_check": "2024-01-01T00:00:00Z"
+}
 ```
 
 ### Prometheus Metrics
@@ -528,6 +570,10 @@ curl http://localhost/metrics
 # - script_security_violations_total
 # - active_script_executions
 # - script_queue_size
+# - watchdog_terminated_executions_total
+# - resource_violations_total
+# - kill_switch_active
+# - deno_executor_health
 ```
 
 ### WebSocket Metrics Stream
@@ -687,6 +733,8 @@ services:
 - **GET /health/redis**: Redis connectivity
 - **GET /health/queue**: Queue worker status
 - **GET /health/websocket**: WebSocket server status
+- **GET /health/deno**: Deno executor health status
+- **GET /health/watchdog**: Watchdog service status
 
 ### API Endpoints
 - **GET /metrics**: Prometheus metrics endpoint
@@ -694,5 +742,10 @@ services:
 - **WS /ws/metrics**: Real-time metrics WebSocket stream
 - **GET /api/scripts/validate**: Script validation endpoint
 - **POST /api/scripts/test**: Script testing endpoint
+- **GET /api/kill-switch/status**: Kill-switch status endpoint
+- **GET /api/watchdog/status**: Watchdog service status endpoint
+- **POST /api/scripts/{id}/versions**: Create new script version
+- **POST /api/scripts/versions/{id}/approve**: Approve script version
+- **POST /api/scripts/versions/{id}/reject**: Reject script version
 
 For additional support, please refer to the main README.md file or contact the development team.

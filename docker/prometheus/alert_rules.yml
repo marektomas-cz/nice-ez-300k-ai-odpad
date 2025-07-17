@@ -191,3 +191,95 @@ groups:
         annotations:
           summary: "High Redis memory usage"
           description: "Redis memory usage is {{ $value }}%"
+
+  - name: runaway_script_alerts
+    rules:
+      - alert: RunawayScriptDetected
+        expr: script_execution_duration_seconds > 300
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Runaway script detected"
+          description: "Script execution {{ $labels.script_id }} has been running for {{ $value }} seconds"
+
+      - alert: MemoryLeakInScript
+        expr: increase(script_memory_usage_bytes[5m]) > 50000000
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Potential memory leak in script"
+          description: "Script {{ $labels.script_id }} memory usage increased by {{ $value | humanizeBytes }} in 5 minutes"
+
+      - alert: ScriptResourceViolation
+        expr: increase(resource_violations_total[1m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Script resource violation detected"
+          description: "Script violated resource limits: {{ $labels.violation_type }}"
+
+      - alert: WatchdogTerminatedScript
+        expr: increase(watchdog_terminated_executions_total[1m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Watchdog terminated script execution"
+          description: "Watchdog terminated {{ $value }} script executions due to resource violations"
+
+      - alert: HighScriptErrorRate
+        expr: rate(script_errors_total[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High script error rate"
+          description: "Script error rate is {{ $value }} errors per second"
+
+      - alert: DenoExecutorResourceExhaustion
+        expr: deno_executor_active_executions > 50
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Deno executor resource exhaustion"
+          description: "Deno executor has {{ $value }} active executions"
+
+      - alert: ScriptTimeoutExceeded
+        expr: increase(script_timeout_exceeded_total[1m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Script timeout exceeded"
+          description: "{{ $value }} scripts exceeded their timeout limit"
+
+      - alert: MaliciousScriptActivity
+        expr: increase(malicious_script_detected_total[1m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Malicious script activity detected"
+          description: "{{ $value }} potentially malicious scripts detected"
+
+      - alert: ScriptSecurityBlockedExecution
+        expr: increase(security_blocked_executions_total[1m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Script execution blocked by security"
+          description: "{{ $value }} script executions blocked by security analyzer"
+
+      - alert: UnusualScriptBehavior
+        expr: script_execution_duration_seconds > 3 * (avg_over_time(script_execution_duration_seconds[1h]) or 30)
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unusual script behavior detected"
+          description: "Script {{ $labels.script_id }} execution time {{ $value }}s is {{ $value / (avg_over_time(script_execution_duration_seconds[1h]) or 30) }}x longer than average"

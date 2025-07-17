@@ -1,0 +1,30 @@
+parameters:
+    level: 5
+    paths:
+        - app
+        - config
+        - database
+        - tests
+    excludePaths:
+        - app/Http/Middleware/TrustHosts.php
+        - app/Http/Middleware/TrustProxies.php
+        - bootstrap
+        - storage
+        - vendor
+        - node_modules
+    tmpDir: build/phpstan
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
+    treatPhpDocTypesAsCertain: false
+    bootstrapFiles:
+        - vendor/autoload.php
+    ignoreErrors:
+        - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder#'
+        - '#Call to an undefined method Illuminate\\Database\\Query\\Builder#'
+        - '#Access to an undefined property Illuminate\\Database\\Eloquent\\Model#'
+        - '#Method .* should return .* but returns Illuminate\\Database\\Eloquent\\Model#'
+    symfony:
+        container_xml_path: build/phpstan/container.xml
+    laravel:
+        providers:
+            - Larastan\Larastan\LaravelServiceProvider

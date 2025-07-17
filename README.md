@@ -18,7 +18,10 @@ The solution follows a layered architecture with strict security boundaries:
 
 ### 🔒 Security-First Design
 - **AST Security Analysis**: Advanced Abstract Syntax Tree based code analysis using Peast parser
-- **Resource Limits**: CPU, memory, and execution time constraints
+- **Deno Sidecar Isolation**: Scripts run in isolated Deno containers with strict security boundaries
+- **Resource Limits**: CPU, memory, and execution time constraints with cgroups enforcement
+- **Watchdog Service**: Real-time monitoring and automatic termination of runaway scripts
+- **Kill-Switch System**: Emergency shutdown mechanism for security breaches and resource violations
 - **API Gateway**: Controlled access to database and external services
 - **Role-Based Access Control**: Fine-grained permissions using Spatie Laravel Permission
 - **Secret Management**: Encrypted storage and rotation of API keys and credentials
@@ -35,6 +38,7 @@ The solution follows a layered architecture with strict security boundaries:
 ### 🎯 Developer Experience
 - **Monaco Editor**: Advanced code editor with IntelliSense, auto-completion, and TypeScript support
 - **Script Versioning**: Complete version control with diff visualization and rollback capabilities
+- **Approval Workflow**: Multi-stage approval process for script deployment with role-based permissions
 - **Real-time Validation**: Instant syntax and security validation with AST analysis
 - **Script Templates**: Pre-built templates for common use cases
 - **Error Handling**: Comprehensive error reporting and debugging
@@ -50,8 +54,11 @@ The solution follows a layered architecture with strict security boundaries:
 - Laravel 10.x
 - Redis (recommended for production)
 - Docker & Docker Compose (for containerized deployment)
+- Deno 1.40+ (for script execution runtime)
 - Node.js 18+ (for frontend build)
 - npm or yarn (package manager)
+- Prometheus (for metrics collection)
+- Grafana (for metrics visualization)
 
 ### Quick Start (Development)
 ```bash
@@ -123,18 +130,22 @@ The solution now uses a secure Deno sidecar for script execution, replacing the 
 
 ### Deno Executor Features
 - **Sandboxed Execution**: No file system or network access by default
-- **Resource Limits**: Configurable memory and CPU constraints
+- **Resource Limits**: Configurable memory and CPU constraints with cgroups enforcement
 - **Health Monitoring**: Built-in health checks and metrics
 - **Error Handling**: Comprehensive error reporting and timeout management
 - **Security**: Runs as non-root user with minimal privileges
+- **Watchdog Integration**: Real-time monitoring and automatic termination of runaway scripts
+- **Kill-Switch Support**: Emergency shutdown mechanism for security breaches
 
 ### Script Execution Flow
 1. **Request**: Laravel receives script execution request
-2. **Security Analysis**: AST-based security validation
-3. **Sidecar Communication**: HTTP request to Deno executor
-4. **Execution**: Secure script execution in Deno runtime
-5. **Response**: Results returned to Laravel application
-6. **Monitoring**: Metrics collected and stored
+2. **Security Analysis**: AST-based security validation with whitelist/blacklist patterns
+3. **Watchdog Initialization**: Real-time monitoring setup with resource limits
+4. **Sidecar Communication**: HTTP request to Deno executor with security context
+5. **Execution**: Secure script execution in Deno runtime with isolation
+6. **Monitoring**: Continuous resource monitoring and violation detection
+7. **Response**: Results returned to Laravel application
+8. **Metrics**: Prometheus metrics collection and alerting
 
 ## Usage
 
@@ -163,13 +174,15 @@ return { processed: users.length };
 
 ## Script Versioning
 
-The solution includes comprehensive version control for scripts:
+The solution includes comprehensive version control for scripts with enhanced workflow features:
 
 ### Version Management
 - **Semantic Versioning**: Automatic version numbering (major.minor.patch)
-- **Change Tracking**: Complete diff calculation between versions
+- **Change Tracking**: Complete diff calculation between versions with Monaco diff editor
 - **Version Metadata**: Creator, timestamps, and change notes
-- **Rollback Capability**: Easy rollback to previous versions
+- **Rollback Capability**: Easy rollback to previous versions with confirmation
+- **Approval Workflow**: Multi-stage approval process for script deployment
+- **Role-Based Permissions**: Approver roles for version control governance
 
 ### Usage Examples
 
@@ -177,14 +190,23 @@ The solution includes comprehensive version control for scripts:
 // Create a new version
 $version = $script->createVersion('Fixed performance issue', auth()->user());
 
+// Submit version for approval
+$version->submitForApproval(auth()->user());
+
+// Approve version (requires approver role)
+$version->approve(auth()->user(), 'Reviewed and approved');
+
+// Reject version with reason
+$version->reject(auth()->user(), 'Security concerns identified');
+
 // Rollback to specific version
 $script->rollbackToVersion($version->id);
 
-// Compare versions
+// Compare versions with diff visualization
 $diff = $version->getDiff($previousVersion);
 
-// Get version history
-$versions = $script->versions()->orderBy('created_at', 'desc')->get();
+// Get version history with approval status
+$versions = $script->versions()->with('approvals')->orderBy('created_at', 'desc')->get();
 ```
 
 ## Security Features
@@ -199,8 +221,10 @@ $versions = $script->versions()->orderBy('created_at', 'desc')->get();
 - **AST-based Analysis**: Advanced Abstract Syntax Tree security analysis using Peast parser
 - **Whitelist/Blacklist Patterns**: Configurable security patterns for allowed/forbidden operations
 - **Input Validation**: All script inputs are sanitized and validated
-- **Execution Sandbox**: Isolated environment prevents system access
-- **Resource Limits**: CPU, memory, and execution time constraints
+- **Execution Sandbox**: Isolated Deno environment prevents system access
+- **Resource Limits**: CPU, memory, and execution time constraints with cgroups enforcement
+- **Watchdog Monitoring**: Real-time monitoring and automatic termination of runaway scripts
+- **Kill-Switch Protection**: Emergency shutdown mechanism for security breaches
 
 ### Secret Management
 - **Encrypted Storage**: AES-256 encrypted secret storage
@@ -214,6 +238,8 @@ $versions = $script->versions()->orderBy('created_at', 'desc')->get();
 - **Security Logging**: Comprehensive security event logging
 - **Threat Detection**: Real-time security violation detection
 - **Compliance Reporting**: Security compliance and audit reports
+- **Prometheus Metrics**: Comprehensive metrics collection and alerting
+- **Watchdog Alerts**: Real-time alerts for resource violations and security breaches
 
 ## Testing
 
@@ -237,10 +263,11 @@ The project includes a comprehensive CI/CD pipeline:
 
 ### GitHub Actions Pipeline
 - **Multi-PHP Testing**: Tests across PHP 8.1, 8.2, and 8.3
-- **Security Scanning**: SAST analysis and vulnerability scanning
-- **Code Quality**: PHPStan, PHPUnit, and Laravel Pint
-- **Docker Build**: Multi-stage container builds
-- **Dependency Auditing**: Automated security vulnerability checks
+- **Security Scanning**: SAST analysis, AST security validation, and vulnerability scanning
+- **Code Quality**: PHPStan, Psalm, PHPUnit, and Laravel Pint
+- **Docker Build**: Multi-stage container builds with security scanning
+- **Dependency Auditing**: Automated security vulnerability checks with composer audit
+- **Deno Testing**: Deno sidecar testing and security validation
 
 ### Container Orchestration
 - **Docker Compose**: Complete stack deployment
@@ -325,10 +352,11 @@ The solution includes comprehensive monitoring and analytics with Prometheus int
 - **Security Violations**: Real-time security threat detection
 
 ### Alerting Rules
-- **Critical Alerts**: Memory/CPU thresholds, kill-switch triggers, service failures
-- **Warning Alerts**: Performance degradation, high failure rates, security violations
+- **Critical Alerts**: Memory/CPU thresholds, kill-switch triggers, service failures, runaway scripts
+- **Warning Alerts**: Performance degradation, high failure rates, security violations, resource violations
 - **Info Alerts**: Usage patterns and system status updates
 - **Multi-channel Notifications**: Email, Slack, webhook integrations
+- **Runaway Script Detection**: Automatic detection and termination of long-running or resource-intensive scripts
 
 ## API Documentation
 
