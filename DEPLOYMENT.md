@@ -20,6 +20,8 @@ This guide provides comprehensive instructions for deploying the NICE Scripting 
 - **Grafana**: For metrics visualization (optional)
 - **Git**: For version control and CI/CD
 - **GitHub Actions**: For automated CI/CD pipeline
+- **WebSocket Server**: For real-time metrics updates
+- **Node.js**: For frontend build and Monaco editor
 
 ### Required PHP Extensions
 ```bash
@@ -45,6 +47,10 @@ docker-compose up -d
 
 # Install dependencies
 docker-compose exec app composer install
+docker-compose exec app npm install
+
+# Build frontend assets
+docker-compose exec app npm run build
 
 # Run migrations
 docker-compose exec app php artisan migrate --force
@@ -109,10 +115,8 @@ cd nice-scripting-solution
 # Install PHP dependencies
 composer install --no-dev --optimize-autoloader
 
-# Install Node.js dependencies (if using build tools)
+# Install Node.js dependencies and build frontend
 npm install --production
-
-# Build frontend assets (if applicable)
 npm run build
 ```
 
@@ -173,6 +177,17 @@ SCRIPT_ERROR_RATE_THRESHOLD=0.1
 SCRIPT_AVG_TIME_THRESHOLD=5.0
 SCRIPT_MEMORY_THRESHOLD=0.8
 SCRIPT_CONCURRENT_THRESHOLD=8
+
+# Prometheus Metrics
+PROMETHEUS_ENABLED=true
+PROMETHEUS_NAMESPACE=nice_scripting
+PROMETHEUS_METRICS_PATH=/metrics
+PROMETHEUS_REDIS_KEY=prometheus_metrics
+
+# WebSocket Server
+WEBSOCKET_ENABLED=true
+WEBSOCKET_PORT=8080
+WEBSOCKET_HOST=0.0.0.0
 ```
 
 ### 4. Database Setup
@@ -382,9 +397,35 @@ curl http://localhost/health
     "services": {
         "database": "healthy",
         "redis": "healthy",
-        "queue": "healthy"
+        "queue": "healthy",
+        "websocket": "healthy"
     }
 }
+```
+
+### Prometheus Metrics
+```bash
+# Prometheus metrics endpoint
+curl http://localhost/metrics
+
+# Key metrics available:
+# - script_executions_total
+# - script_execution_duration_seconds
+# - script_memory_usage_bytes
+# - script_errors_total
+# - script_security_violations_total
+# - active_script_executions
+# - script_queue_size
+```
+
+### WebSocket Metrics Stream
+```javascript
+// Connect to real-time metrics
+const ws = new WebSocket('ws://localhost:8080/metrics');
+ws.onmessage = (event) => {
+    const metrics = JSON.parse(event.data);
+    console.log('Real-time metrics:', metrics);
+};
 ```
 
 ### Log Management
@@ -533,5 +574,13 @@ services:
 - **GET /health/database**: Database connectivity
 - **GET /health/redis**: Redis connectivity
 - **GET /health/queue**: Queue worker status
+- **GET /health/websocket**: WebSocket server status
+
+### API Endpoints
+- **GET /metrics**: Prometheus metrics endpoint
+- **GET /api/metrics/dashboard**: Dashboard metrics data
+- **WS /ws/metrics**: Real-time metrics WebSocket stream
+- **GET /api/scripts/validate**: Script validation endpoint
+- **POST /api/scripts/test**: Script testing endpoint
 
 For additional support, please refer to the main README.md file or contact the development team.

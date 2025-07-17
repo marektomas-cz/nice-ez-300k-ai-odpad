@@ -32,13 +32,14 @@ The solution follows a layered architecture with strict security boundaries:
 - **CI/CD Pipeline**: Automated testing, security scanning, and deployment
 
 ### 🎯 Developer Experience
-- **Advanced Code Editor**: CodeMirror with syntax highlighting, auto-completion, and error detection
-- **Script Versioning**: Complete version control with rollback capabilities
-- **Real-time Validation**: Instant syntax and security validation
+- **Monaco Editor**: Advanced code editor with IntelliSense, auto-completion, and TypeScript support
+- **Script Versioning**: Complete version control with diff visualization and rollback capabilities
+- **Real-time Validation**: Instant syntax and security validation with AST analysis
 - **Script Templates**: Pre-built templates for common use cases
 - **Error Handling**: Comprehensive error reporting and debugging
 - **Testing Suite**: Unit, integration, and security tests
 - **Documentation**: Complete API documentation and examples
+- **Prometheus Monitoring**: Real-time metrics collection and visualization
 
 ## Installation
 
@@ -48,11 +49,16 @@ The solution follows a layered architecture with strict security boundaries:
 - Laravel 10.x
 - Redis (recommended for production)
 - Docker & Docker Compose (for containerized deployment)
+- Node.js 18+ (for frontend build)
+- npm or yarn (package manager)
 
 ### Quick Start (Development)
 ```bash
-# Install dependencies
+# Install PHP dependencies
 composer install
+
+# Install Node.js dependencies
+npm install
 
 # Set up environment
 cp .env.example .env
@@ -61,6 +67,9 @@ php artisan key:generate
 # Run migrations and seed demo data
 php artisan migrate
 php artisan db:seed --class=ScriptingSeeder
+
+# Build frontend assets
+npm run dev
 
 # Start development server
 php artisan serve
@@ -73,6 +82,10 @@ docker-compose up -d
 
 # Install dependencies
 docker-compose exec app composer install
+docker-compose exec app npm install
+
+# Build frontend assets
+docker-compose exec app npm run build
 
 # Run migrations
 docker-compose exec app php artisan migrate
@@ -243,13 +256,15 @@ QUEUE_CONNECTION=redis
 
 The solution includes comprehensive monitoring and analytics:
 
-- **Real-time Dashboard**: Live metrics and performance indicators
-- **Execution Metrics**: Performance and resource usage tracking
+- **Real-time Dashboard**: Live metrics and performance indicators with Chart.js visualization
+- **Execution Metrics**: Performance and resource usage tracking via Prometheus
 - **Error Tracking**: Failed executions and detailed exception analysis
 - **Security Events**: Authentication, authorization, and security violation logs
 - **Resource Usage**: CPU, memory, and database query monitoring
 - **Health Checks**: System health endpoints for infrastructure monitoring
 - **Alert System**: Configurable alerts for performance and security thresholds
+- **WebSocket Support**: Real-time metrics updates for live dashboards
+- **Metrics Export**: Prometheus-compatible metrics endpoint at `/metrics`
 
 ## API Documentation
 

@@ -13,7 +13,9 @@
         "guzzlehttp/guzzle": "^7.0",
         "predis/predis": "^2.0",
         "doctrine/dbal": "^3.0",
-        "peast/peast": "^1.0"
+        "peast/peast": "^1.0",
+        "prometheus/client_php": "^2.6",
+        "react/socket": "^1.12"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.0",
