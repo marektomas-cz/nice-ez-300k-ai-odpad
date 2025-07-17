@@ -42,6 +42,7 @@ RUN apk add --no-cache \
     supervisor \
     mysql-client \
     redis \
+    curl \
     && docker-php-ext-install pdo_mysql bcmath opcache
 
 # Configure PHP-FPM

@@ -1,0 +1,193 @@
+groups:
+  - name: script_execution_alerts
+    rules:
+      - alert: HighMemoryUsage
+        expr: system_memory_usage_percent > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value }}% for more than 2 minutes"
+
+      - alert: CriticalMemoryUsage
+        expr: system_memory_usage_percent > 90
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical memory usage detected"
+          description: "Memory usage is {{ $value }}% for more than 1 minute"
+
+      - alert: HighCpuUsage
+        expr: system_cpu_usage_percent > 85
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}% for more than 2 minutes"
+
+      - alert: CriticalCpuUsage
+        expr: system_cpu_usage_percent > 95
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical CPU usage detected"
+          description: "CPU usage is {{ $value }}% for more than 1 minute"
+
+      - alert: KillSwitchTriggered
+        expr: kill_switch_active == 1
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kill switch has been triggered"
+          description: "The kill switch is active - all script executions are being stopped"
+
+      - alert: DenoExecutorDown
+        expr: deno_executor_health == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Deno executor is unhealthy"
+          description: "Deno executor has been unhealthy for more than 1 minute"
+
+      - alert: HighScriptExecutionFailureRate
+        expr: rate(script_executions_total{status="failed"}[5m]) / rate(script_executions_total[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High script execution failure rate"
+          description: "Script execution failure rate is {{ $value | humanizePercentage }} for more than 2 minutes"
+
+      - alert: TooManyConcurrentExecutions
+        expr: sum(concurrent_executions) > 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Too many concurrent script executions"
+          description: "There are {{ $value }} concurrent script executions running"
+
+      - alert: LongRunningScriptExecution
+        expr: script_execution_duration_seconds > 120
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Long running script execution detected"
+          description: "Script execution has been running for {{ $value }} seconds"
+
+      - alert: HighSecurityViolationRate
+        expr: rate(security_violations_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High security violation rate"
+          description: "Security violations are occurring at a rate of {{ $value }} per second"
+
+      - alert: LowScriptSecurityScore
+        expr: script_security_score < 40
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Script with low security score detected"
+          description: "Script security score is {{ $value }}, which is below the critical threshold"
+
+      - alert: SlowDenoExecutorResponse
+        expr: histogram_quantile(0.95, rate(deno_executor_response_time_seconds_bucket[5m])) > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow Deno executor response time"
+          description: "95th percentile response time is {{ $value }} seconds"
+
+      - alert: HighApiRequestFailureRate
+        expr: rate(api_requests_total{status=~"4xx|5xx"}[5m]) / rate(api_requests_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API request failure rate"
+          description: "API request failure rate is {{ $value | humanizePercentage }}"
+
+      - alert: NoActiveUsers
+        expr: active_users == 0
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "No active users"
+          description: "There have been no active users for 5 minutes"
+
+  - name: infrastructure_alerts
+    rules:
+      - alert: HighNodeCpuUsage
+        expr: (100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: HighNodeMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: HighNodeDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 85
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Disk usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance is down for more than 1 minute"
+
+      - alert: MysqlDown
+        expr: mysql_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MySQL is down"
+          description: "MySQL instance is down for more than 1 minute"
+
+      - alert: HighMysqlConnections
+        expr: mysql_global_status_threads_connected / mysql_global_variables_max_connections * 100 > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High MySQL connection usage"
+          description: "MySQL connection usage is {{ $value }}%"
+
+      - alert: HighRedisMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 85
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is {{ $value }}%"

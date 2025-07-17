@@ -76,11 +76,18 @@ docker-compose logs -f
 
 ### Docker Services Overview
 - **app**: Main Laravel application (PHP-FPM)
+- **deno-executor**: Secure Deno sidecar for script execution
 - **nginx**: Web server and reverse proxy
 - **mysql**: MySQL database
 - **redis**: Cache and queue backend
 - **worker**: Queue worker processes
 - **scheduler**: Cron job scheduler
+- **prometheus**: Metrics collection and monitoring
+- **grafana**: Metrics visualization dashboard
+- **alertmanager**: Alert routing and notification
+- **node-exporter**: System metrics collection
+- **redis-exporter**: Redis metrics collection
+- **mysql-exporter**: MySQL metrics collection
 
 ### Container Resource Limits
 ```yaml
@@ -93,7 +100,23 @@ app:
     cpus: '0.5'
     memory: 512M
 
+deno-executor:
+  limits:
+    cpus: '0.5'
+    memory: 256M
+  reservations:
+    cpus: '0.25'
+    memory: 128M
+
 worker:
+  limits:
+    cpus: '0.5'
+    memory: 512M
+  reservations:
+    cpus: '0.25'
+    memory: 256M
+
+prometheus:
   limits:
     cpus: '0.5'
     memory: 512M
@@ -164,6 +187,12 @@ SCRIPT_RESOURCE_MONITORING=true
 SCRIPT_RATE_LIMITING=true
 SCRIPT_AUDIT_LOGGING=true
 
+# Deno Sidecar Configuration
+DENO_SERVICE_URL=http://deno-executor:8080
+DENO_EXECUTOR_TIMEOUT=30
+DENO_EXECUTOR_MEMORY_LIMIT=256
+DENO_EXECUTOR_CPU_LIMIT=0.5
+
 # Security
 SCRIPT_DATABASE_ACCESS=true
 SCRIPT_ENABLE_WRITES=false
@@ -178,11 +207,26 @@ SCRIPT_AVG_TIME_THRESHOLD=5.0
 SCRIPT_MEMORY_THRESHOLD=0.8
 SCRIPT_CONCURRENT_THRESHOLD=8
 
+# Kill-Switch Configuration
+KILL_SWITCH_ENABLED=true
+KILL_SWITCH_MEMORY_THRESHOLD=80
+KILL_SWITCH_CPU_THRESHOLD=85
+KILL_SWITCH_CONCURRENT_THRESHOLD=10
+KILL_SWITCH_FAILURE_RATE_THRESHOLD=0.5
+
 # Prometheus Metrics
 PROMETHEUS_ENABLED=true
 PROMETHEUS_NAMESPACE=nice_scripting
 PROMETHEUS_METRICS_PATH=/metrics
 PROMETHEUS_REDIS_KEY=prometheus_metrics
+
+# Grafana Configuration
+GRAFANA_ADMIN_PASSWORD=admin
+GRAFANA_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+
+# AlertManager Configuration
+ALERTMANAGER_WEBHOOK_URL=http://app:8000/api/alerts/webhook
+ALERTMANAGER_SLACK_WEBHOOK=https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
 
 # WebSocket Server
 WEBSOCKET_ENABLED=true
@@ -398,7 +442,75 @@ curl http://localhost/health
         "database": "healthy",
         "redis": "healthy",
         "queue": "healthy",
-        "websocket": "healthy"
+        "websocket": "healthy",
+        "deno_executor": "healthy"
+    }
+}
+
+# Deno executor health check
+curl http://localhost:8080/health
+
+# Expected response:
+{
+    "status": "healthy",
+    "timestamp": "2024-01-01T00:00:00Z",
+    "memory_usage": 45.2,
+    "uptime": 3600
+}
+```
+
+### Monitoring Stack Configuration
+
+#### Prometheus Configuration
+```yaml
+# Access Prometheus at http://localhost:9090
+# Key metrics endpoints:
+# - http://localhost:8000/metrics (Laravel app)
+# - http://localhost:8080/metrics (Deno executor)
+# - http://localhost:9100/metrics (Node exporter)
+# - http://localhost:9121/metrics (Redis exporter)
+# - http://localhost:9104/metrics (MySQL exporter)
+```
+
+#### Grafana Dashboards
+```bash
+# Access Grafana at http://localhost:3000
+# Default credentials: admin/admin
+# Pre-configured dashboards:
+# - Application Performance
+# - Script Execution Metrics
+# - Infrastructure Monitoring
+# - Security Events
+```
+
+#### AlertManager Configuration
+```yaml
+# Access AlertManager at http://localhost:9093
+# Configured alert routes:
+# - Critical alerts: Email + Slack
+# - Warning alerts: Slack only
+# - Info alerts: Webhook only
+```
+
+#### Kill-Switch Monitoring
+```bash
+# Kill-switch status endpoint
+curl http://localhost/api/kill-switch/status
+
+# Expected response:
+{
+    "active": false,
+    "thresholds": {
+        "memory": 80,
+        "cpu": 85,
+        "concurrent_executions": 10,
+        "failure_rate": 0.5
+    },
+    "current_values": {
+        "memory": 65.4,
+        "cpu": 42.1,
+        "concurrent_executions": 3,
+        "failure_rate": 0.02
     }
 }
 ```

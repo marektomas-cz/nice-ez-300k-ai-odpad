@@ -1,16 +1,17 @@
 # NICE Scripting Solution
 
-## Enterprise-grade In-App Scripting Solution for Laravel
+## Enterprise-grade In-App Scripting Solution with Deno Sidecar Architecture
 
-This project implements a secure, scalable in-app scripting solution for multi-tenant Laravel applications, designed to meet enterprise security and performance standards.
+This project implements a secure, scalable in-app scripting solution for multi-tenant Laravel applications, designed to meet enterprise security and performance standards. The solution has been enhanced with a Deno sidecar architecture for improved security and performance.
 
 ## Architecture Overview
 
 The solution follows a layered architecture with strict security boundaries:
 
 - **Client Interface Layer**: User-friendly script management with syntax highlighting
-- **Security Layer**: Permission validation, rate limiting, and input sanitization  
-- **Execution Engine**: AST-based secure JavaScript analysis
+- **Security Layer**: Enhanced AST-based security analysis, permission validation, and rate limiting
+- **Execution Engine**: Secure Deno sidecar for isolated script execution
+- **Monitoring Layer**: Comprehensive Prometheus metrics with kill-switch capabilities
 - **Data Layer**: Comprehensive logging and audit trails
 
 ## Key Features
@@ -109,6 +110,32 @@ Configure the scripting environment in `config/scripting.php`:
 ],
 ```
 
+## Deno Sidecar Architecture
+
+The solution now uses a secure Deno sidecar for script execution, replacing the previous V8Js integration:
+
+### Architecture Benefits
+- **Security Isolation**: Scripts run in separate containers with resource limits
+- **Resource Control**: CPU and memory constraints prevent resource exhaustion
+- **Modern Runtime**: TypeScript/JavaScript execution with Deno's secure-by-default approach
+- **HTTP Communication**: Clean API between Laravel and Deno executor
+- **Scalability**: Independent scaling of execution environment
+
+### Deno Executor Features
+- **Sandboxed Execution**: No file system or network access by default
+- **Resource Limits**: Configurable memory and CPU constraints
+- **Health Monitoring**: Built-in health checks and metrics
+- **Error Handling**: Comprehensive error reporting and timeout management
+- **Security**: Runs as non-root user with minimal privileges
+
+### Script Execution Flow
+1. **Request**: Laravel receives script execution request
+2. **Security Analysis**: AST-based security validation
+3. **Sidecar Communication**: HTTP request to Deno executor
+4. **Execution**: Secure script execution in Deno runtime
+5. **Response**: Results returned to Laravel application
+6. **Monitoring**: Metrics collected and stored
+
 ## Usage
 
 ### Creating Scripts
@@ -132,6 +159,7 @@ return { processed: users.length };
 - **Manual**: Via web interface or API
 - **Event-driven**: Laravel event listeners
 - **Scheduled**: Cron jobs and queued tasks
+- **Sidecar Execution**: Secure execution via Deno container
 
 ## Script Versioning
 
@@ -231,14 +259,18 @@ The project includes a comprehensive CI/CD pipeline:
 
 ### Build and Deploy
 ```bash
-# Build production image
+# Build production images
 docker build --target production -t nice-scripting-solution:latest .
+docker build -f docker/deno/Dockerfile -t deno-executor:latest docker/deno/
 
-# Run with docker-compose
-docker-compose -f docker-compose.prod.yml up -d
+# Run with docker-compose (includes monitoring stack)
+docker-compose up -d
 
 # Check health
 curl http://localhost/health
+curl http://localhost:8080/health  # Deno executor
+curl http://localhost:9090         # Prometheus
+curl http://localhost:3000         # Grafana
 ```
 
 ### Environment Variables
@@ -246,16 +278,27 @@ curl http://localhost/health
 APP_ENV=production
 APP_DEBUG=false
 DB_CONNECTION=mysql
-DB_HOST=mysql
-DB_DATABASE=scripting_solution
+DB_HOST=db
+DB_DATABASE=nice_scripting
+DB_USERNAME=nice_scripting
+DB_PASSWORD=secret
 REDIS_HOST=redis
 QUEUE_CONNECTION=redis
+DENO_SERVICE_URL=http://deno-executor:8080
+GRAFANA_PASSWORD=admin
 ```
+
+### Monitoring Stack
+- **Prometheus**: `http://localhost:9090`
+- **Grafana**: `http://localhost:3000` (admin/admin)
+- **AlertManager**: `http://localhost:9093`
+- **Node Exporter**: `http://localhost:9100`
 
 ## Monitoring & Analytics
 
-The solution includes comprehensive monitoring and analytics:
+The solution includes comprehensive monitoring and analytics with Prometheus integration:
 
+### Core Monitoring Features
 - **Real-time Dashboard**: Live metrics and performance indicators with Chart.js visualization
 - **Execution Metrics**: Performance and resource usage tracking via Prometheus
 - **Error Tracking**: Failed executions and detailed exception analysis
@@ -265,6 +308,27 @@ The solution includes comprehensive monitoring and analytics:
 - **Alert System**: Configurable alerts for performance and security thresholds
 - **WebSocket Support**: Real-time metrics updates for live dashboards
 - **Metrics Export**: Prometheus-compatible metrics endpoint at `/metrics`
+
+### Prometheus Stack Integration
+- **Prometheus Server**: Metrics collection and storage
+- **Grafana Dashboards**: Visual monitoring and alerting interface
+- **AlertManager**: Centralized alert routing and notification
+- **Node Exporter**: System-level metrics collection
+- **Redis Exporter**: Redis performance monitoring
+- **MySQL Exporter**: Database performance monitoring
+
+### Kill-Switch Monitoring
+- **Memory Threshold**: Automatic shutdown at >80% memory usage
+- **CPU Threshold**: Protection against >85% CPU usage
+- **Concurrent Executions**: Limits to prevent resource exhaustion
+- **Failure Rate Monitoring**: Automatic response to high failure rates
+- **Security Violations**: Real-time security threat detection
+
+### Alerting Rules
+- **Critical Alerts**: Memory/CPU thresholds, kill-switch triggers, service failures
+- **Warning Alerts**: Performance degradation, high failure rates, security violations
+- **Info Alerts**: Usage patterns and system status updates
+- **Multi-channel Notifications**: Email, Slack, webhook integrations
 
 ## API Documentation
 

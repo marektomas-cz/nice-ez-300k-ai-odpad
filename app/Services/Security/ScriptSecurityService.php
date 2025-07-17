@@ -14,13 +14,15 @@ use Carbon\Carbon;
 class ScriptSecurityService
 {
     protected ResourceMonitorService $resourceMonitor;
+    protected AstSecurityAnalyzer $astAnalyzer;
     protected array $forbiddenPatterns;
     protected array $allowedTables;
     protected array $allowedDomains;
 
-    public function __construct(ResourceMonitorService $resourceMonitor)
+    public function __construct(ResourceMonitorService $resourceMonitor, AstSecurityAnalyzer $astAnalyzer)
     {
         $this->resourceMonitor = $resourceMonitor;
+        $this->astAnalyzer = $astAnalyzer;
         $this->initializeSecurityConfig();
     }
 
@@ -139,13 +141,33 @@ class ScriptSecurityService
     }
 
     /**
-     * Validate script content for security issues
+     * Validate script content for security issues using AST analysis and regex fallback
      */
     public function validateScriptContent(string $code): array
     {
         $issues = [];
 
-        // Check for forbidden patterns
+        // Primary validation using AST analyzer
+        $astAnalysis = $this->astAnalyzer->analyze($code);
+        
+        // Extract high-severity issues from AST analysis
+        $highSeverityIssues = array_filter($astAnalysis['issues'], function ($issue) {
+            return $issue['severity'] === 'high';
+        });
+
+        if (!empty($highSeverityIssues)) {
+            foreach ($highSeverityIssues as $issue) {
+                $issues[] = "AST Analysis: " . $issue['message'] . " (Line: " . $issue['line'] . ")";
+            }
+        }
+
+        // If AST analysis finds critical issues, don't proceed with regex validation
+        if ($astAnalysis['score'] < 40) {
+            $issues[] = "Script has critical security score: " . $astAnalysis['score'];
+            return $issues;
+        }
+
+        // Fallback regex validation for additional coverage
         foreach ($this->forbiddenPatterns as $pattern) {
             if (preg_match($pattern, $code)) {
                 $issues[] = "Forbidden pattern detected: " . $pattern;
@@ -173,6 +195,14 @@ class ScriptSecurityService
         }
 
         return $issues;
+    }
+
+    /**
+     * Get comprehensive security analysis using AST analyzer
+     */
+    public function getSecurityAnalysis(string $code): array
+    {
+        return $this->astAnalyzer->analyze($code);
     }
 
     /**
