@@ -13,6 +13,14 @@ This guide provides comprehensive instructions for deploying the NICE Scripting 
 - **Redis**: 6.0+ (for caching and queues)
 - **Web Server**: Nginx or Apache
 - **V8Js Extension**: Required for JavaScript execution
+- **Docker**: 20.10+ (for containerized deployment)
+- **Docker Compose**: 2.0+ (for orchestration)
+
+### Additional Requirements for Enterprise Features
+- **Prometheus**: For metrics collection
+- **Grafana**: For metrics visualization (optional)
+- **Git**: For version control and CI/CD
+- **GitHub Actions**: For automated CI/CD pipeline
 
 ### Required PHP Extensions
 ```bash
@@ -132,6 +140,107 @@ chmod -R 775 storage bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache
 ```
 
+## Docker Deployment (Recommended)
+
+### Quick Start with Docker Compose
+```bash
+# Clone repository
+git clone https://github.com/marektomas-cz/nice-ez-300k-ai-odpad.git nice-scripting-solution
+cd nice-scripting-solution
+
+# Configure environment
+cp .env.example .env
+# Edit .env file with your configuration
+
+# Build and start services
+docker-compose up -d
+
+# Run migrations
+docker-compose exec app php artisan migrate --force
+docker-compose exec app php artisan db:seed --class=RolePermissionSeeder
+
+# Generate application key
+docker-compose exec app php artisan key:generate
+```
+
+### Production Docker Deployment
+```bash
+# Build production image
+docker build -t nice-scripting-solution:latest --target production .
+
+# Run with production configuration
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Monitor services
+docker-compose ps
+docker-compose logs -f
+```
+
+### Docker Services Overview
+- **app**: Main Laravel application (PHP-FPM)
+- **nginx**: Web server and reverse proxy
+- **db**: MySQL database
+- **redis**: Cache and queue backend
+- **worker**: Queue worker processes
+- **scheduler**: Cron job scheduler
+- **monitor**: Prometheus monitoring
+
+### Container Resource Limits
+```yaml
+# Configured resource limits
+app:
+  limits:
+    cpus: '1.0'
+    memory: 1G
+  reservations:
+    cpus: '0.5'
+    memory: 512M
+
+worker:
+  limits:
+    cpus: '0.5'
+    memory: 512M
+  reservations:
+    cpus: '0.25'
+    memory: 256M
+```
+
+## CI/CD Pipeline
+
+### GitHub Actions Workflow
+The project includes a comprehensive CI/CD pipeline with the following stages:
+
+#### 1. Test Matrix
+- **Multi-PHP Testing**: PHP 8.1, 8.2, 8.3
+- **Database Testing**: MySQL 8.0, PostgreSQL 13
+- **Redis Testing**: Redis 7.0
+- **V8Js Integration**: Automated V8Js installation and testing
+
+#### 2. Security Scanning
+- **Static Analysis**: PHPStan level 8 analysis
+- **Security Audit**: Composer audit for vulnerabilities
+- **Code Quality**: Laravel Pint formatting checks
+- **Secret Scanning**: Automated secret detection
+
+#### 3. Docker Build
+- **Multi-stage Build**: Development and production targets
+- **Security Scanning**: Container vulnerability scanning
+- **Registry Push**: Automated image publishing
+
+#### 4. Deployment Stages
+- **Staging**: Automated deployment to staging environment
+- **Production**: Manual approval for production deployment
+- **Rollback**: Automated rollback capabilities
+
+### Manual Deployment Trigger
+```bash
+# Trigger deployment manually
+gh workflow run deploy.yml --ref main
+
+# Check deployment status
+gh run list --workflow=deploy.yml
+```
+
 ## Web Server Configuration
 
 ### Nginx Configuration
@@ -217,6 +326,57 @@ stopwaitsecs=3600
 ```
 
 ## Security Configuration
+
+### Role-Based Access Control Setup
+```bash
+# Seed roles and permissions
+php artisan db:seed --class=RolePermissionSeeder
+
+# Create admin user
+php artisan tinker
+>>> $user = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => bcrypt('password')]);
+>>> $user->assignRole('super-admin');
+
+# Create client with proper permissions
+>>> $client = Client::create(['name' => 'Default Client', 'slug' => 'default']);
+>>> $user->clients()->attach($client->id);
+```
+
+### Secret Management Setup
+```bash
+# Generate encryption key for secrets
+php artisan key:generate
+
+# Configure secret storage
+php artisan config:cache
+
+# Test secret management
+php artisan tinker
+>>> $client = Client::first();
+>>> $secretManager = app(App\Services\Security\SecretManager::class);
+>>> $secretManager->storeSecret($client, 'api.key', 'secret_value', ['type' => 'api_key']);
+>>> $secretManager->getSecret($client, 'api.key');
+```
+
+### Security Features Configuration
+```env
+# Enable security features
+SCRIPT_SECURITY_VALIDATION=true
+SCRIPT_AST_ANALYSIS=true
+SCRIPT_RATE_LIMITING=true
+SCRIPT_AUDIT_LOGGING=true
+
+# Configure security limits
+SCRIPT_MAX_EXECUTION_TIME=30
+SCRIPT_MAX_MEMORY_MB=128
+SCRIPT_MAX_CONCURRENT_EXECUTIONS=5
+SCRIPT_RATE_LIMIT_PER_MINUTE=100
+
+# Secret management
+SECRET_ENCRYPTION_ENABLED=true
+SECRET_ROTATION_ENABLED=true
+SECRET_EXPIRATION_DAYS=90
+```
 
 ### File Permissions
 ```bash
@@ -474,8 +634,45 @@ php artisan optimize
 
 # Monthly maintenance
 php artisan scripts:archive-old-executions
+php artisan scripts:cleanup-old-versions
+php artisan secrets:rotate-expired
 composer update --no-dev
 npm update
+```
+
+### Script Versioning Management
+```bash
+# Create script version
+php artisan tinker
+>>> $script = Script::find(1);
+>>> $version = $script->createVersion('Performance improvements');
+
+# List all versions
+>>> $versions = $script->versions()->orderBy('created_at', 'desc')->get();
+
+# Rollback to specific version
+>>> $script->rollbackToVersion($previousVersion->id);
+
+# Clean up old versions (keep last 10)
+>>> ScriptVersion::where('script_id', $script->id)
+      ->orderBy('created_at', 'desc')
+      ->skip(10)
+      ->delete();
+```
+
+### Secret Management Maintenance
+```bash
+# Rotate expiring secrets
+php artisan secrets:rotate-expiring
+
+# Clean up expired secrets
+php artisan secrets:cleanup-expired
+
+# Security audit
+php artisan secrets:security-audit
+
+# Export secrets backup
+php artisan secrets:export --client=1 --output=/backup/secrets.enc
 ```
 
 ### Updates

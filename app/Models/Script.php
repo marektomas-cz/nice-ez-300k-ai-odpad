@@ -25,6 +25,7 @@ class Script extends Model
         'configuration',
         'version',
         'tags',
+        'current_version_id',
     ];
 
     protected $casts = [
@@ -84,6 +85,67 @@ class Script extends Model
         return $this->executionLogs()
             ->orderBy('created_at', 'desc')
             ->limit($limit);
+    }
+
+    /**
+     * Get all versions of this script
+     */
+    public function versions(): HasMany
+    {
+        return $this->hasMany(ScriptVersion::class);
+    }
+
+    /**
+     * Get the current version
+     */
+    public function currentVersion()
+    {
+        return $this->belongsTo(ScriptVersion::class, 'current_version_id');
+    }
+
+    /**
+     * Get the latest version
+     */
+    public function latestVersion()
+    {
+        return $this->versions()->orderBy('created_at', 'desc')->first();
+    }
+
+    /**
+     * Create a new version from current script state
+     */
+    public function createVersion(string $changeNotes = '', ?User $creator = null): ScriptVersion
+    {
+        $version = ScriptVersion::createFromScript($this, $changeNotes, $creator);
+        
+        // Update current version reference
+        $this->update(['current_version_id' => $version->id]);
+        
+        return $version;
+    }
+
+    /**
+     * Restore script to a specific version
+     */
+    public function restoreToVersion(ScriptVersion $version): bool
+    {
+        if ($version->script_id !== $this->id) {
+            return false;
+        }
+
+        return $version->restoreToScript();
+    }
+
+    /**
+     * Get version history
+     */
+    public function getVersionHistory(): array
+    {
+        return $this->versions()
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(fn($version) => $version->getComparisonData())
+            ->toArray();
     }
 
     /**

@@ -17,18 +17,24 @@ The solution follows a layered architecture with strict security boundaries:
 
 ### 🔒 Security-First Design
 - **Sandboxed Execution**: V8Js isolated JavaScript environment
+- **AST Security Analysis**: Advanced Abstract Syntax Tree based code analysis
 - **Resource Limits**: CPU, memory, and execution time constraints
 - **API Gateway**: Controlled access to database and external services
+- **Role-Based Access Control**: Fine-grained permissions using Spatie Laravel Permission
+- **Secret Management**: Encrypted storage and rotation of API keys and credentials
 - **Audit Logging**: Complete execution history and security events
 
 ### 🚀 Performance & Scalability
 - **Async Execution**: Non-blocking script execution
-- **Resource Monitoring**: Real-time performance metrics
+- **Resource Monitoring**: Real-time performance metrics with Prometheus
 - **Queue Integration**: Background processing for heavy tasks
 - **Caching Layer**: Optimized script compilation and data access
+- **Container Orchestration**: Docker-based deployment with resource limits
+- **CI/CD Pipeline**: Automated testing, security scanning, and deployment
 
 ### 🎯 Developer Experience
 - **Advanced Code Editor**: CodeMirror with syntax highlighting, auto-completion, and error detection
+- **Script Versioning**: Complete version control with rollback capabilities
 - **Real-time Validation**: Instant syntax and security validation
 - **Script Templates**: Pre-built templates for common use cases
 - **Error Handling**: Comprehensive error reporting and debugging
@@ -103,13 +109,59 @@ return { processed: users.length };
 - **Event-driven**: Laravel event listeners
 - **Scheduled**: Cron jobs and queued tasks
 
+## Script Versioning
+
+The solution includes comprehensive version control for scripts:
+
+### Version Management
+- **Semantic Versioning**: Automatic version numbering (major.minor.patch)
+- **Change Tracking**: Complete diff calculation between versions
+- **Version Metadata**: Creator, timestamps, and change notes
+- **Rollback Capability**: Easy rollback to previous versions
+
+### Usage Examples
+
+```php
+// Create a new version
+$version = $script->createVersion('Fixed performance issue', auth()->user());
+
+// Rollback to specific version
+$script->rollbackToVersion($version->id);
+
+// Compare versions
+$diff = $version->getDiff($previousVersion);
+
+// Get version history
+$versions = $script->versions()->orderBy('created_at', 'desc')->get();
+```
+
 ## Security Features
 
-- **Input Validation**: All script inputs are sanitized
-- **Permission System**: Role-based access control
-- **Rate Limiting**: Prevents abuse and DDoS
-- **Audit Trail**: Complete execution history
-- **Isolation**: Scripts cannot access Laravel internals
+### Authentication & Authorization
+- **Role-Based Access Control**: Comprehensive RBAC with roles (admin, script-manager, script-creator, script-executor)
+- **Fine-grained Permissions**: Granular permissions for script operations (view, create, update, delete, execute)
+- **Multi-tenant Isolation**: Client-based data separation and access control
+- **Rate Limiting**: Per-user and per-client execution limits
+
+### Script Security
+- **AST-based Analysis**: Advanced Abstract Syntax Tree security analysis
+- **Whitelist/Blacklist Patterns**: Configurable security patterns for allowed/forbidden operations
+- **Input Validation**: All script inputs are sanitized and validated
+- **Execution Sandbox**: V8Js isolated environment prevents system access
+- **Resource Limits**: CPU, memory, and execution time constraints
+
+### Secret Management
+- **Encrypted Storage**: AES-256 encrypted secret storage
+- **Secret Rotation**: Automated and manual secret rotation capabilities
+- **Expiration Management**: Configurable secret expiration and alerts
+- **Usage Tracking**: Complete audit trail of secret access
+- **Security Scoring**: Risk assessment based on usage patterns
+
+### Monitoring & Auditing
+- **Audit Trail**: Complete execution history and security events
+- **Security Logging**: Comprehensive security event logging
+- **Threat Detection**: Real-time security violation detection
+- **Compliance Reporting**: Security compliance and audit reports
 
 ## Testing
 
@@ -124,6 +176,31 @@ php artisan test --group=security
 php artisan test --group=performance
 ```
 
+## CI/CD & Deployment
+
+The project includes a comprehensive CI/CD pipeline:
+
+### GitHub Actions Pipeline
+- **Multi-PHP Testing**: Tests across PHP 8.1, 8.2, and 8.3
+- **Dependency Installation**: V8Js and all required extensions
+- **Security Scanning**: SAST analysis and vulnerability scanning
+- **Code Quality**: PHPStan, PHPUnit, and Laravel Pint
+- **Docker Build**: Multi-stage container builds
+- **Deployment**: Automated deployment to staging and production
+
+### Container Orchestration
+- **Docker Compose**: Complete stack deployment
+- **Resource Limits**: CPU and memory constraints
+- **Health Checks**: Application and service health monitoring
+- **Service Discovery**: Nginx reverse proxy and load balancing
+- **Monitoring**: Prometheus metrics collection
+
+### Infrastructure as Code
+- **Dockerfiles**: Multi-stage builds for production and development
+- **Configuration Management**: Environment-specific configurations
+- **Secret Management**: Secure credential handling
+- **Backup Strategies**: Database and application data backups
+
 ## Monitoring & Analytics
 
 The solution includes comprehensive monitoring and analytics:
@@ -135,6 +212,7 @@ The solution includes comprehensive monitoring and analytics:
 - **Resource Usage**: CPU, memory, and database query monitoring
 - **Health Checks**: System health endpoints for infrastructure monitoring
 - **Alert System**: Configurable alerts for performance and security thresholds
+- **Prometheus Integration**: Advanced metrics collection and visualization
 
 ## API Documentation
 

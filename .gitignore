@@ -1,0 +1,42 @@
+# Laravel
+/vendor/
+/node_modules/
+/public/hot
+/public/storage
+/storage/*.key
+/storage/app/public
+/storage/framework/cache/data
+/storage/framework/sessions
+/storage/framework/views
+/storage/logs
+/.env
+/.env.backup
+/.phpunit.result.cache
+/.vscode
+/.idea
+/Homestead.json
+/Homestead.yaml
+/npm-debug.log
+/yarn-error.log
+/auth.json
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+*.swp
+*.swo
+*~
+
+# Ignore analysis files
+new-analysis.md
+*-analysis.md
+
+# Docker
+docker-compose.override.yml
