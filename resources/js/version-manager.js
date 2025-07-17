@@ -6,6 +6,7 @@ export class VersionManager {
         this.versions = [];
         this.diffEditor = null;
         this.selectedVersions = { original: null, modified: null };
+        this.approvalWorkflow = { enabled: true, canApprove: false };
     }
 
     static init() {
@@ -16,6 +17,7 @@ export class VersionManager {
         this.loadScript();
         this.setupEventListeners();
         this.initializeDiffEditor();
+        this.initializeApprovalWorkflow();
     }
 
     loadScript() {
@@ -59,6 +61,22 @@ export class VersionManager {
         const exportBtn = document.getElementById('export-version');
         if (exportBtn) {
             exportBtn.addEventListener('click', () => this.exportVersion());
+        }
+
+        // Approval workflow buttons
+        const approveBtn = document.getElementById('approve-version');
+        if (approveBtn) {
+            approveBtn.addEventListener('click', () => this.approveVersion());
+        }
+
+        const rejectBtn = document.getElementById('reject-version');
+        if (rejectBtn) {
+            rejectBtn.addEventListener('click', () => this.rejectVersion());
+        }
+
+        const submitForApprovalBtn = document.getElementById('submit-for-approval');
+        if (submitForApprovalBtn) {
+            submitForApprovalBtn.addEventListener('click', () => this.submitForApproval());
         }
     }
 
@@ -350,6 +368,198 @@ export class VersionManager {
         setTimeout(() => {
             notification.remove();
         }, 3000);
+    }
+
+    initializeApprovalWorkflow() {
+        // Check user permissions
+        const userRole = document.querySelector('meta[name="user-role"]')?.getAttribute('content');
+        this.approvalWorkflow.canApprove = userRole === 'admin' || userRole === 'approver';
+        
+        // Update UI based on permissions
+        this.updateApprovalUI();
+    }
+
+    updateApprovalUI() {
+        const approvalSection = document.getElementById('approval-section');
+        if (!approvalSection) return;
+
+        if (this.approvalWorkflow.enabled) {
+            approvalSection.style.display = 'block';
+            this.renderApprovalControls();
+        } else {
+            approvalSection.style.display = 'none';
+        }
+    }
+
+    renderApprovalControls() {
+        const approvalSection = document.getElementById('approval-section');
+        if (!approvalSection) return;
+
+        const canApprove = this.approvalWorkflow.canApprove;
+        const pendingVersions = this.versions.filter(v => v.status === 'pending');
+
+        approvalSection.innerHTML = `
+            <div class="approval-controls">
+                <h4>Approval Workflow</h4>
+                ${pendingVersions.length > 0 ? `
+                    <div class="pending-versions">
+                        <h5>Pending Approval (${pendingVersions.length})</h5>
+                        ${pendingVersions.map(version => `
+                            <div class="pending-version-item">
+                                <div class="version-info">
+                                    <span class="version-number">v${version.version}</span>
+                                    <span class="version-author">by ${version.created_by?.name || 'Unknown'}</span>
+                                    <span class="version-date">${this.formatDate(version.created_at)}</span>
+                                </div>
+                                ${canApprove ? `
+                                    <div class="approval-actions">
+                                        <button class="btn btn-success btn-sm" onclick="versionManager.approveVersionById(${version.id})">
+                                            Approve
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" onclick="versionManager.rejectVersionById(${version.id})">
+                                            Reject
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<p>No versions pending approval</p>'}
+                ${!canApprove ? `
+                    <div class="submit-for-approval">
+                        <button id="submit-for-approval" class="btn btn-primary">
+                            Submit Current Version for Approval
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    submitForApproval() {
+        const scriptId = document.getElementById('script-id')?.value;
+        const currentCode = window.ScriptEditor?.editor?.getValue();
+        
+        if (!scriptId || !currentCode) {
+            this.showNotification('Cannot submit for approval: missing script or code', 'error');
+            return;
+        }
+
+        const description = prompt('Enter description for this version:');
+        if (!description) return;
+
+        fetch(`/api/scripts/${scriptId}/versions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({
+                code: currentCode,
+                description: description,
+                status: 'pending'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.loadScript(); // Refresh version list
+                this.showNotification('Version submitted for approval', 'success');
+            } else {
+                this.showNotification(data.message || 'Error submitting version', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error submitting version:', error);
+            this.showNotification('Error submitting version', 'error');
+        });
+    }
+
+    approveVersionById(versionId) {
+        if (!confirm('Are you sure you want to approve this version?')) {
+            return;
+        }
+
+        fetch(`/api/scripts/versions/${versionId}/approve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.loadScript(); // Refresh version list
+                this.showNotification('Version approved successfully', 'success');
+            } else {
+                this.showNotification(data.message || 'Error approving version', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error approving version:', error);
+            this.showNotification('Error approving version', 'error');
+        });
+    }
+
+    rejectVersionById(versionId) {
+        const reason = prompt('Please enter the reason for rejection:');
+        if (!reason) return;
+
+        fetch(`/api/scripts/versions/${versionId}/reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({ reason })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.loadScript(); // Refresh version list
+                this.showNotification('Version rejected', 'success');
+            } else {
+                this.showNotification(data.message || 'Error rejecting version', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error rejecting version:', error);
+            this.showNotification('Error rejecting version', 'error');
+        });
+    }
+
+    approveVersion() {
+        const versionId = this.selectedVersions.original || this.selectedVersions.modified;
+        if (!versionId) {
+            this.showNotification('Please select a version to approve', 'error');
+            return;
+        }
+
+        this.approveVersionById(versionId);
+    }
+
+    rejectVersion() {
+        const versionId = this.selectedVersions.original || this.selectedVersions.modified;
+        if (!versionId) {
+            this.showNotification('Please select a version to reject', 'error');
+            return;
+        }
+
+        this.rejectVersionById(versionId);
+    }
+
+    getVersionStatusBadge(status) {
+        const statusConfig = {
+            'draft': { class: 'badge-secondary', text: 'Draft' },
+            'pending': { class: 'badge-warning', text: 'Pending' },
+            'approved': { class: 'badge-success', text: 'Approved' },
+            'rejected': { class: 'badge-danger', text: 'Rejected' },
+            'deployed': { class: 'badge-info', text: 'Deployed' }
+        };
+
+        const config = statusConfig[status] || statusConfig.draft;
+        return `<span class="badge ${config.class}">${config.text}</span>`;
     }
 }
 

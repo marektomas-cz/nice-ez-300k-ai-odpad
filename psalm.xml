@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="5"
+    resolveFromConfigFile="true"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    findUnusedBaselineEntry="true"
+    findUnusedCode="true"
+    findUnusedVariablesAndParams="true"
+    cacheDirectory="build/psalm"
+>
+    <projectFiles>
+        <directory name="app"/>
+        <directory name="config"/>
+        <directory name="database"/>
+        <directory name="tests"/>
+        <ignoreFiles>
+            <directory name="vendor"/>
+            <directory name="bootstrap"/>
+            <directory name="storage"/>
+            <directory name="node_modules"/>
+        </ignoreFiles>
+    </projectFiles>
+
+    <issueHandlers>
+        <LessSpecificReturnType errorLevel="info"/>
+        <DeprecatedMethod errorLevel="info"/>
+        <MissingClosureReturnType errorLevel="info"/>
+        <MissingReturnType errorLevel="info"/>
+        <MissingPropertyType errorLevel="info"/>
+        <InvalidDocblock errorLevel="info"/>
+        <MissingDependency errorLevel="info"/>
+        <UnusedMethod errorLevel="info"/>
+        <UnusedClass errorLevel="info"/>
+        <PossiblyUnusedMethod errorLevel="info"/>
+        <PossiblyUnusedProperty errorLevel="info"/>
+        <UnusedVariable errorLevel="info"/>
+        <UnusedParam errorLevel="info"/>
+        <PossiblyUnusedParam errorLevel="info"/>
+        
+        <!-- Security-focused issues -->
+        <ForbiddenCode errorLevel="error"/>
+        <TaintedInput errorLevel="error"/>
+        <TaintedShell errorLevel="error"/>
+        <TaintedSql errorLevel="error"/>
+        <TaintedFile errorLevel="error"/>
+        <TaintedInclude errorLevel="error"/>
+        <TaintedEval errorLevel="error"/>
+        <TaintedCallable errorLevel="error"/>
+        <TaintedCustom errorLevel="error"/>
+        
+        <!-- Laravel-specific issues -->
+        <PropertyNotSetInConstructor errorLevel="info">
+            <errorLevel type="suppress">
+                <directory name="app/Http/Controllers"/>
+                <directory name="app/Http/Middleware"/>
+                <directory name="app/Providers"/>
+            </errorLevel>
+        </PropertyNotSetInConstructor>
+        
+        <MissingConstructor errorLevel="info">
+            <errorLevel type="suppress">
+                <directory name="app/Http/Controllers"/>
+                <directory name="app/Http/Middleware"/>
+                <directory name="app/Providers"/>
+            </errorLevel>
+        </MissingConstructor>
+    </issueHandlers>
+
+    <plugins>
+        <pluginClass class="Psalm\LaravelPlugin\Plugin"/>
+    </plugins>
+</psalm>

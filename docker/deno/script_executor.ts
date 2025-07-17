@@ -39,6 +39,7 @@ class ScriptExecutor {
   private outputBuffer: string[] = [];
   private startTime: number = 0;
   private memoryUsed: number = 0;
+  private activeExecutions: Map<string, AbortController> = new Map();
 
   constructor() {
     this.setupSecurityContext();
@@ -172,12 +173,15 @@ class ScriptExecutor {
 
       // Create execution context with timeout
       const controller = new AbortController();
+      this.activeExecutions.set(request.execution_id, controller);
+      
       const timeoutId = setTimeout(() => controller.abort(), request.timeout);
 
       // Execute with resource limits
       const result = await this.executeWithLimits(wrappedCode, api, controller.signal);
 
       clearTimeout(timeoutId);
+      this.activeExecutions.delete(request.execution_id);
 
       const executionTime = performance.now() - this.startTime;
 
@@ -191,6 +195,7 @@ class ScriptExecutor {
 
     } catch (error) {
       const executionTime = performance.now() - this.startTime;
+      this.activeExecutions.delete(request.execution_id);
       
       return {
         success: false,
@@ -250,6 +255,49 @@ class ScriptExecutor {
 
     return result;
   }
+
+  /**
+   * Stop execution by execution ID
+   */
+  stopExecution(executionId: string): boolean {
+    const controller = this.activeExecutions.get(executionId);
+    if (controller) {
+      controller.abort();
+      this.activeExecutions.delete(executionId);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Validate JavaScript syntax
+   */
+  validateSyntax(code: string): { valid: boolean; error?: string } {
+    try {
+      // Basic syntax validation using Function constructor
+      new Function(code);
+      return { valid: true };
+    } catch (error) {
+      return { 
+        valid: false, 
+        error: error.message 
+      };
+    }
+  }
+
+  /**
+   * Get active executions count
+   */
+  getActiveExecutionsCount(): number {
+    return this.activeExecutions.size;
+  }
+
+  /**
+   * Get all active execution IDs
+   */
+  getActiveExecutionIds(): string[] {
+    return Array.from(this.activeExecutions.keys());
+  }
 }
 
 // HTTP server
@@ -284,6 +332,80 @@ async function handler(request: Request): Promise<Response> {
       const response = await executor.execute(executionRequest);
       
       return new Response(JSON.stringify(response), {
+        status: STATUS_CODE.OK,
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: `Server error: ${error.message}` }),
+        { 
+          status: STATUS_CODE.InternalServerError,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+  }
+
+  // Stop execution endpoint
+  if (url.pathname === '/stop' && request.method === 'POST') {
+    try {
+      const body = await request.json();
+      const { execution_id } = body;
+      
+      if (!execution_id) {
+        return new Response(
+          JSON.stringify({ error: 'Missing execution_id' }),
+          { 
+            status: STATUS_CODE.BadRequest,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      // Stop execution
+      const stopped = executor.stopExecution(execution_id);
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        stopped: stopped,
+        execution_id: execution_id 
+      }), {
+        status: STATUS_CODE.OK,
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: `Server error: ${error.message}` }),
+        { 
+          status: STATUS_CODE.InternalServerError,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+  }
+
+  // Validate endpoint
+  if (url.pathname === '/validate' && request.method === 'POST') {
+    try {
+      const body = await request.json();
+      const { code } = body;
+      
+      if (!code) {
+        return new Response(
+          JSON.stringify({ error: 'Missing code' }),
+          { 
+            status: STATUS_CODE.BadRequest,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      // Basic syntax validation
+      const validation = executor.validateSyntax(code);
+      
+      return new Response(JSON.stringify(validation), {
         status: STATUS_CODE.OK,
         headers: { 'Content-Type': 'application/json' }
       });

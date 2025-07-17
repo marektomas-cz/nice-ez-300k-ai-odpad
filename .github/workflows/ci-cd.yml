@@ -1,0 +1,273 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  release:
+    types: [ published ]
+
+env:
+  PHP_VERSION: '8.2'
+  NODE_VERSION: '18'
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Run Tests
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: secret
+          MYSQL_DATABASE: testing
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+          
+      redis:
+        image: redis:7.0-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ env.PHP_VERSION }}
+        extensions: mbstring, dom, fileinfo, mysql, redis, bcmath, gd, zip, xml, curl, json, pdo, pdo_mysql
+        coverage: xdebug
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Get Composer Cache Directory
+      id: composer-cache
+      run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+    - name: Cache Composer dependencies
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+        restore-keys: ${{ runner.os }}-composer-
+
+    - name: Install Composer dependencies
+      run: composer install --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+    - name: Install NPM dependencies
+      run: npm ci
+
+    - name: Create environment file
+      run: |
+        cp .env.example .env
+        php artisan key:generate
+        
+    - name: Setup test environment
+      run: |
+        php artisan config:cache
+        php artisan route:cache
+        
+    - name: Run database migrations
+      run: php artisan migrate --force
+      env:
+        DB_CONNECTION: mysql
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_DATABASE: testing
+        DB_USERNAME: root
+        DB_PASSWORD: secret
+
+    - name: Build frontend assets
+      run: npm run build
+
+    - name: Run PHP linting
+      run: ./vendor/bin/phpcs --standard=PSR12 app/
+
+    - name: Run PHP static analysis
+      run: ./vendor/bin/phpstan analyse --level=5 app/
+
+    - name: Run unit tests
+      run: |
+        php artisan test --coverage-clover=coverage.xml --testsuite=Unit
+      env:
+        DB_CONNECTION: mysql
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_DATABASE: testing
+        DB_USERNAME: root
+        DB_PASSWORD: secret
+        REDIS_HOST: 127.0.0.1
+        REDIS_PORT: 6379
+
+    - name: Run feature tests
+      run: |
+        php artisan test --testsuite=Feature
+      env:
+        DB_CONNECTION: mysql
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_DATABASE: testing
+        DB_USERNAME: root
+        DB_PASSWORD: secret
+        REDIS_HOST: 127.0.0.1
+        REDIS_PORT: 6379
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  security:
+    runs-on: ubuntu-latest
+    name: Security Analysis
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ env.PHP_VERSION }}
+        extensions: mbstring, dom, fileinfo, mysql, redis, bcmath, gd, zip, xml, curl, json, pdo, pdo_mysql
+
+    - name: Install Composer dependencies
+      run: composer install --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+    - name: Run security audit
+      run: composer audit
+
+    - name: Run Psalm security analysis
+      run: ./vendor/bin/psalm --show-info=true --no-cache
+
+    - name: Run PHPStan security rules
+      run: ./vendor/bin/phpstan analyse --level=5 --configuration=phpstan-security.neon app/
+
+  docker:
+    runs-on: ubuntu-latest
+    name: Build Docker Images
+    needs: [test, security]
+    if: github.event_name == 'push' || github.event_name == 'release'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push main app image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build and push Deno executor image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./docker/deno
+        file: ./docker/deno/Dockerfile
+        push: true
+        tags: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}-deno:${{ github.sha }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    name: Deploy to Staging
+    needs: [docker]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your deployment commands here
+        # For example: kubectl apply -f k8s/staging/
+        # Or: ansible-playbook -i inventory/staging deploy.yml
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    needs: [docker]
+    if: github.event_name == 'release'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production environment..."
+        # Add your deployment commands here
+        # For example: kubectl apply -f k8s/production/
+        # Or: ansible-playbook -i inventory/production deploy.yml
+
+  notify:
+    runs-on: ubuntu-latest
+    name: Notify Teams
+    needs: [test, security, docker]
+    if: always()
+    
+    steps:
+    - name: Notify Slack on Success
+      if: ${{ success() }}
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: "✅ CI/CD Pipeline succeeded for ${{ github.repository }}"
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Notify Slack on Failure
+      if: ${{ failure() }}
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: "❌ CI/CD Pipeline failed for ${{ github.repository }}"
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}

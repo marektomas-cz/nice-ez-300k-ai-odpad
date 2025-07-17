@@ -8,6 +8,7 @@ use App\Services\Security\ScriptSecurityService;
 use App\Services\Security\AstSecurityAnalyzer;
 use App\Services\Scripting\ScriptingApiService;
 use App\Services\Scripting\ResourceMonitorService;
+use App\Services\Monitoring\WatchdogService;
 use App\Exceptions\ScriptExecutionException;
 use App\Exceptions\SecurityViolationException;
 use Illuminate\Support\Facades\Http;
@@ -22,18 +23,21 @@ class DenoScriptingService
     protected AstSecurityAnalyzer $astAnalyzer;
     protected ScriptingApiService $apiService;
     protected ResourceMonitorService $resourceMonitor;
+    protected WatchdogService $watchdogService;
     protected string $denoServiceUrl;
 
     public function __construct(
         ScriptSecurityService $securityService,
         AstSecurityAnalyzer $astAnalyzer,
         ScriptingApiService $apiService,
-        ResourceMonitorService $resourceMonitor
+        ResourceMonitorService $resourceMonitor,
+        WatchdogService $watchdogService
     ) {
         $this->securityService = $securityService;
         $this->astAnalyzer = $astAnalyzer;
         $this->apiService = $apiService;
         $this->resourceMonitor = $resourceMonitor;
+        $this->watchdogService = $watchdogService;
         $this->denoServiceUrl = config('scripting.deno.service_url', 'http://deno-executor:8080');
     }
 
@@ -63,6 +67,9 @@ class DenoScriptingService
             // Start execution monitoring
             $executionLog->markAsStarted();
             $this->resourceMonitor->startMonitoring($executionLog->id);
+
+            // Start watchdog monitoring in background
+            $this->watchdogService->startBackgroundMonitoring($executionLog->id);
 
             // Execute the script in Deno sidecar
             $output = $this->executeInDenoSidecar($script, $context, $executionLog);

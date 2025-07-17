@@ -1,0 +1,54 @@
+parameters:
+    level: 5
+    paths:
+        - app
+    excludePaths:
+        - bootstrap
+        - storage
+        - vendor
+        - node_modules
+    tmpDir: build/phpstan-security
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
+    treatPhpDocTypesAsCertain: false
+    bootstrapFiles:
+        - vendor/autoload.php
+    
+    # Security-focused rules
+    customRulesetUsed: true
+    
+    # Security patterns to check
+    ignoreErrors:
+        - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder#'
+        - '#Call to an undefined method Illuminate\\Database\\Query\\Builder#'
+        - '#Access to an undefined property Illuminate\\Database\\Eloquent\\Model#'
+        - '#Method .* should return .* but returns Illuminate\\Database\\Eloquent\\Model#'
+    
+    # Custom security rules
+    rules:
+        - PHPStan\Rules\Security\ForbiddenFunctionCallRule
+        - PHPStan\Rules\Security\NoEvalRule
+        - PHPStan\Rules\Security\NoExecRule
+        - PHPStan\Rules\Security\NoFileGetContentsRule
+        - PHPStan\Rules\Security\NoShellExecRule
+        - PHPStan\Rules\Security\NoSystemRule
+        - PHPStan\Rules\Security\NoPassthruRule
+        - PHPStan\Rules\Security\NoUnserializeRule
+        - PHPStan\Rules\Security\NoMd5Rule
+        - PHPStan\Rules\Security\NoSha1Rule
+        - PHPStan\Rules\Security\NoRawSqlRule
+        - PHPStan\Rules\Security\NoHtmlPurifierRule
+        
+    # Security-related function patterns
+    forbiddenFunctions:
+        eval: 'Use of eval() is forbidden for security reasons'
+        exec: 'Use of exec() is forbidden for security reasons'
+        shell_exec: 'Use of shell_exec() is forbidden for security reasons'
+        system: 'Use of system() is forbidden for security reasons'
+        passthru: 'Use of passthru() is forbidden for security reasons'
+        unserialize: 'Use of unserialize() is forbidden for security reasons, use json_decode() instead'
+        md5: 'Use of md5() is forbidden for security reasons, use hash() with stronger algorithms'
+        sha1: 'Use of sha1() is forbidden for security reasons, use hash() with stronger algorithms'
+        file_get_contents: 'Use of file_get_contents() with URLs is forbidden for security reasons'
+        curl_exec: 'Use of curl_exec() requires security validation'
+        preg_replace: 'Use of preg_replace() with /e modifier is forbidden for security reasons'
