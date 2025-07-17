@@ -9,6 +9,8 @@ interface ExecutionRequest {
   client_id: string;
   script_id: string;
   execution_id: string;
+  api_callback_url?: string;
+  api_token?: string;
 }
 
 interface ExecutionResponse {
@@ -30,7 +32,7 @@ interface ApiContext {
   utils: {
     now: () => number;
     uuid: () => string;
-    hash: (data: string) => string;
+    hash: (data: string) => Promise<string>;
     parseJson: (json: string) => any;
   };
   database: {
@@ -72,8 +74,6 @@ class ScriptExecutor {
     //@ts-ignore
     delete globalThis.Deno;
     //@ts-ignore
-    delete globalThis.fetch;
-    //@ts-ignore
     delete globalThis.XMLHttpRequest;
     //@ts-ignore
     delete globalThis.WebSocket;
@@ -82,11 +82,53 @@ class ScriptExecutor {
     //@ts-ignore
     delete globalThis.eval;
     //@ts-ignore
-    delete globalThis.Function;
+    delete globalThis.Function.prototype.constructor;
     //@ts-ignore
     delete globalThis.import;
     //@ts-ignore
     delete globalThis.require;
+  }
+
+  private async callLaravelApi(
+    request: ExecutionRequest,
+    type: string,
+    method: string,
+    params: any
+  ): Promise<any> {
+    if (!request.api_callback_url || !request.api_token) {
+      throw new Error('API callback configuration missing');
+    }
+
+    try {
+      const response = await fetch(request.api_callback_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          execution_id: request.execution_id,
+          api_token: request.api_token,
+          type: type,
+          method: method,
+          params: params,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`API call failed: ${response.status} - ${error}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'API call failed');
+      }
+
+      return result.result;
+    } catch (error) {
+      throw new Error(`Laravel API call failed: ${error.message}`);
+    }
   }
 
   private createSecureApi(request: ExecutionRequest): ApiContext {
@@ -125,55 +167,52 @@ class ScriptExecutor {
       },
       database: {
         query: async (sql: string, bindings?: any[]) => {
-          // In real implementation, this would communicate with Laravel backend
-          // For now, return a mock response
           self.outputBuffer.push(`[DB] Query: ${sql}`);
-          return JSON.stringify([]);
+          return await self.callLaravelApi(request, 'database', 'query', { sql, bindings });
         },
         select: async (table: string, columns: string[], conditions?: any) => {
           self.outputBuffer.push(`[DB] Select from ${table}`);
-          return JSON.stringify([]);
+          return await self.callLaravelApi(request, 'database', 'select', { table, columns, conditions });
         },
         insert: async (table: string, data: any) => {
           self.outputBuffer.push(`[DB] Insert into ${table}`);
-          return JSON.stringify({ id: 1, ...data });
+          return await self.callLaravelApi(request, 'database', 'insert', { table, data });
         },
         update: async (table: string, data: any, conditions: any) => {
           self.outputBuffer.push(`[DB] Update ${table}`);
-          return JSON.stringify({ affected: 1 });
+          return await self.callLaravelApi(request, 'database', 'update', { table, data, conditions });
         },
         delete: async (table: string, conditions: any) => {
           self.outputBuffer.push(`[DB] Delete from ${table}`);
-          return JSON.stringify({ affected: 1 });
+          return await self.callLaravelApi(request, 'database', 'delete', { table, conditions });
         }
       },
       http: {
         get: async (url: string, headers?: any) => {
           self.outputBuffer.push(`[HTTP] GET ${url}`);
-          // In real implementation, this would go through Laravel proxy
-          return JSON.stringify({ status: 200, data: {} });
+          return await self.callLaravelApi(request, 'http', 'get', { url, headers });
         },
         post: async (url: string, data?: any, headers?: any) => {
           self.outputBuffer.push(`[HTTP] POST ${url}`);
-          return JSON.stringify({ status: 201, data: {} });
+          return await self.callLaravelApi(request, 'http', 'post', { url, data, headers });
         },
         put: async (url: string, data?: any, headers?: any) => {
           self.outputBuffer.push(`[HTTP] PUT ${url}`);
-          return JSON.stringify({ status: 200, data: {} });
+          return await self.callLaravelApi(request, 'http', 'put', { url, data, headers });
         },
         patch: async (url: string, data?: any, headers?: any) => {
           self.outputBuffer.push(`[HTTP] PATCH ${url}`);
-          return JSON.stringify({ status: 200, data: {} });
+          return await self.callLaravelApi(request, 'http', 'patch', { url, data, headers });
         },
         delete: async (url: string, headers?: any) => {
           self.outputBuffer.push(`[HTTP] DELETE ${url}`);
-          return JSON.stringify({ status: 204, data: {} });
+          return await self.callLaravelApi(request, 'http', 'delete', { url, headers });
         }
       },
       events: {
         dispatch: async (eventName: string, data: any) => {
           self.outputBuffer.push(`[EVENT] Dispatched: ${eventName}`);
-          // In real implementation, this would communicate with Laravel event system
+          await self.callLaravelApi(request, 'events', 'dispatch', { eventName, data });
         }
       },
       getScriptInfo: () => {
@@ -193,7 +232,7 @@ class ScriptExecutor {
       .join('\n');
 
     return `
-      (function() {
+      (async function() {
         'use strict';
         
         // Inject context variables
@@ -252,7 +291,7 @@ class ScriptExecutor {
     }
 
     // Check value type
-    if (typeof value === 'function' || typeof value === 'object' && value !== null && typeof value !== 'object') {
+    if (typeof value === 'function' || (typeof value === 'object' && value !== null && value.constructor !== Object && value.constructor !== Array)) {
       return false;
     }
 
@@ -345,6 +384,7 @@ class ScriptExecutor {
       parseFloat: parseFloat,
       isNaN: isNaN,
       isFinite: isFinite,
+      Promise: Promise,
       
       // Console for basic output
       console: {
@@ -356,14 +396,10 @@ class ScriptExecutor {
       }
     };
 
-    // Execute code in isolated context
-    const func = new Function(...Object.keys(context), `return ${code}`);
-    const result = func(...Object.values(context));
-
-    // Handle promises
-    if (result && typeof result.then === 'function') {
-      return await result;
-    }
+    // Create async function and execute
+    const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+    const func = new AsyncFunction(...Object.keys(context), `return ${code}`);
+    const result = await func(...Object.values(context));
 
     return result;
   }
@@ -386,8 +422,9 @@ class ScriptExecutor {
    */
   validateSyntax(code: string): { valid: boolean; error?: string } {
     try {
-      // Basic syntax validation using Function constructor
-      new Function(code);
+      // Try to create async function for validation
+      const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+      new AsyncFunction(code);
       return { valid: true };
     } catch (error) {
       return { 
@@ -533,11 +570,24 @@ async function handler(request: Request): Promise<Response> {
     }
   }
 
+  // Status endpoint
+  if (url.pathname === '/status' && request.method === 'GET') {
+    return new Response(JSON.stringify({
+      active_executions: executor.getActiveExecutionsCount(),
+      active_execution_ids: executor.getActiveExecutionIds(),
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+    }), {
+      status: STATUS_CODE.OK,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   return new Response('Not Found', { status: STATUS_CODE.NotFound });
 }
 
 // Start server
 const port = parseInt(Deno.env.get('PORT') || '8080');
-console.log(`🚀 Deno Script Executor running on port ${port}`);
+console.log(`🚀 Enhanced Deno Script Executor running on port ${port}`);
 
 await serve(handler, { port });

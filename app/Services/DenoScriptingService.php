@@ -115,6 +115,9 @@ class DenoScriptingService
         try {
             $config = config('scripting.execution');
             
+            // Create API callback URL
+            $apiCallbackUrl = url('/api/internal/script-executor/callback');
+            
             // Prepare execution request
             $executionRequest = [
                 'code' => $script->code,
@@ -124,6 +127,8 @@ class DenoScriptingService
                 'client_id' => $script->client_id,
                 'script_id' => $script->id,
                 'execution_id' => $executionLog->id,
+                'api_callback_url' => $apiCallbackUrl,
+                'api_token' => $this->generateApiToken($executionLog->id),
             ];
 
             // Make request to Deno sidecar
@@ -356,5 +361,20 @@ class DenoScriptingService
             ]);
             return false;
         }
+    }
+
+    /**
+     * Generate a secure API token for the execution
+     */
+    protected function generateApiToken(string $executionId): string
+    {
+        $payload = [
+            'execution_id' => $executionId,
+            'expires_at' => time() + 3600, // 1 hour expiry
+            'nonce' => bin2hex(random_bytes(16)),
+        ];
+        
+        $secret = config('app.key');
+        return hash_hmac('sha256', json_encode($payload), $secret);
     }
 }

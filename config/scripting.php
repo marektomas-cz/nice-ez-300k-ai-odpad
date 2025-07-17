@@ -327,4 +327,29 @@ return [
         'webhook_timeout' => env('SCRIPT_WEBHOOK_TIMEOUT', 10), // seconds
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Deno Sidecar Settings
+    |--------------------------------------------------------------------------
+    |
+    | These settings control the Deno sidecar execution environment.
+    |
+    */
+
+    'deno' => [
+        'enabled' => env('DENO_ENABLED', true),
+        'service_url' => env('DENO_SERVICE_URL', 'http://deno-executor:8080'),
+        'health_check_timeout' => env('DENO_HEALTH_CHECK_TIMEOUT', 5), // seconds
+        'request_timeout' => env('DENO_REQUEST_TIMEOUT', 35), // seconds (should be higher than script timeout)
+        'max_request_retries' => env('DENO_MAX_RETRIES', 3),
+        'fallback_to_v8js' => env('DENO_FALLBACK_TO_V8JS', false),
+        'enable_metrics' => env('DENO_ENABLE_METRICS', true),
+        'resource_limits' => [
+            'max_memory' => env('DENO_MAX_MEMORY', 64), // MB
+            'max_cpu_time' => env('DENO_MAX_CPU_TIME', 30), // seconds
+            'max_file_size' => env('DENO_MAX_FILE_SIZE', 10 * 1024 * 1024), // bytes
+            'max_network_calls' => env('DENO_MAX_NETWORK_CALLS', 10),
+        ],
+    ],
+
 ];

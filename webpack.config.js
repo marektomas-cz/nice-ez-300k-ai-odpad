@@ -3,10 +3,16 @@ const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 module.exports = {
   mode: 'development',
-  entry: './resources/js/app.js',
+  entry: {
+    app: './resources/js/app.js',
+    'script-editor': './resources/js/script-editor.js',
+    'monaco-editor': './resources/js/monaco-editor.js',
+    'version-manager': './resources/js/version-manager.js',
+    'metrics-dashboard': './resources/js/metrics-dashboard.js'
+  },
   output: {
     path: path.resolve(__dirname, 'public/build'),
-    filename: 'app.js',
+    filename: '[name].js',
     publicPath: '/build/',
   },
   module: {
