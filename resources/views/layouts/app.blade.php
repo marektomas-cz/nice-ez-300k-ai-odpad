@@ -32,10 +32,27 @@
             font-size: 14px;
         }
         
-        .script-editor {
+        .script-editor-container {
             border: 1px solid #e5e7eb;
             border-radius: 0.375rem;
             overflow: hidden;
+        }
+        
+        .editor-toolbar {
+            background: #f8f9fa;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .code-editor {
+            height: 400px;
+        }
+        
+        .editor-status {
+            font-size: 0.875rem;
         }
         
         .execution-log {

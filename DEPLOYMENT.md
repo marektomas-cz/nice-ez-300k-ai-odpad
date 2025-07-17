@@ -36,10 +36,13 @@ cd nice-scripting-solution
 # Install PHP dependencies
 composer install --no-dev --optimize-autoloader
 
-# Install Node.js dependencies
+# Verify V8Js extension is installed
+php -m | grep v8js
+
+# Install Node.js dependencies (if using build tools)
 npm install --production
 
-# Build frontend assets
+# Build frontend assets (if applicable)
 npm run build
 ```
 

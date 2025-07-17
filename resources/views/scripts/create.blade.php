@@ -53,7 +53,24 @@
                     
                     <div class="mb-3">
                         <label for="code" class="form-label">Script Code <span class="text-danger">*</span></label>
-                        <div class="script-editor">
+                        <div class="script-editor-container">
+                            <div class="editor-toolbar">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="formatCode()">
+                                        <i class="fas fa-code"></i> Format
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="validateSyntax()">
+                                        <i class="fas fa-check-circle"></i> Validate
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="insertTemplate()">
+                                        <i class="fas fa-plus"></i> Template
+                                    </button>
+                                </div>
+                                <div class="editor-status">
+                                    <span id="editorStatus" class="text-muted">Ready</span>
+                                </div>
+                            </div>
+                            <div id="codeEditor" class="code-editor"></div>
                             <textarea id="code" name="code" class="form-control d-none @error('code') is-invalid @enderror" required>{{ old('code') }}</textarea>
                         </div>
                         @error('code')
@@ -252,7 +269,7 @@ let editor;
 
 // Initialize CodeMirror
 document.addEventListener('DOMContentLoaded', function() {
-    editor = CodeMirror.fromTextArea(document.getElementById('code'), {
+    editor = CodeMirror(document.getElementById('codeEditor'), {
         mode: 'javascript',
         theme: 'monokai',
         lineNumbers: true,
@@ -275,6 +292,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Sync editor content with textarea
     editor.on('change', function() {
         document.getElementById('code').value = editor.getValue();
+        updateEditorStatus();
     });
 
     // Load initial content if any
@@ -282,7 +300,63 @@ document.addEventListener('DOMContentLoaded', function() {
     if (initialCode) {
         editor.setValue(initialCode);
     }
+    
+    updateEditorStatus();
 });
+
+function updateEditorStatus() {
+    const lines = editor.lineCount();
+    const chars = editor.getValue().length;
+    document.getElementById('editorStatus').textContent = `${lines} lines, ${chars} characters`;
+}
+
+function formatCode() {
+    const code = editor.getValue();
+    try {
+        // Basic JavaScript formatting
+        const formatted = code
+            .replace(/\s*{\s*/g, ' {\n    ')
+            .replace(/;\s*/g, ';\n    ')
+            .replace(/\s*}\s*/g, '\n}\n');
+        editor.setValue(formatted);
+        document.getElementById('editorStatus').textContent = 'Code formatted';
+    } catch (e) {
+        document.getElementById('editorStatus').textContent = 'Format failed';
+    }
+}
+
+function validateSyntax() {
+    const code = editor.getValue();
+    if (!code.trim()) {
+        document.getElementById('editorStatus').textContent = 'No code to validate';
+        return;
+    }
+    
+    document.getElementById('editorStatus').textContent = 'Validating...';
+    
+    try {
+        // Basic JavaScript syntax check
+        new Function(code);
+        document.getElementById('editorStatus').textContent = 'Syntax valid ✓';
+    } catch (e) {
+        document.getElementById('editorStatus').textContent = 'Syntax error: ' + e.message;
+    }
+}
+
+function insertTemplate() {
+    const templateCode = `// Template: Basic Script
+const data = api.database.select('users', ['id', 'name'], { active: true });
+const users = JSON.parse(data);
+
+users.forEach(user => {
+    api.log.info('Processing user: ' + user.name);
+});
+
+return { processed: users.length };`;
+    
+    editor.setValue(templateCode);
+    document.getElementById('editorStatus').textContent = 'Template inserted';
+}
 
 // Script templates
 const templates = {

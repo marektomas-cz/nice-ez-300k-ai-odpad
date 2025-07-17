@@ -6,8 +6,8 @@
     "license": "MIT",
     "require": {
         "php": "^8.1",
+        "ext-v8js": "*",
         "laravel/framework": "^10.0",
-        "v8js/v8js": "^2.1",
         "spatie/laravel-permission": "^5.0",
         "spatie/laravel-activitylog": "^4.0",
         "league/fractal": "^0.20",

@@ -28,19 +28,44 @@ The solution follows a layered architecture with strict security boundaries:
 - **Caching Layer**: Optimized script compilation and data access
 
 ### 🎯 Developer Experience
-- **Code Editor**: Syntax highlighting with CodeMirror
+- **Advanced Code Editor**: CodeMirror with syntax highlighting, auto-completion, and error detection
+- **Real-time Validation**: Instant syntax and security validation
+- **Script Templates**: Pre-built templates for common use cases
 - **Error Handling**: Comprehensive error reporting and debugging
 - **Testing Suite**: Unit, integration, and security tests
 - **Documentation**: Complete API documentation and examples
 
 ## Installation
 
+### Prerequisites
+- PHP 8.1+
+- V8Js PHP extension
+- Composer
+- Laravel 10.x
+- Redis (recommended for production)
+
+### Quick Start
 ```bash
+# Install dependencies
 composer install
+
+# Install V8Js extension (Ubuntu/Debian)
+sudo apt-get install php8.1-v8js
+
+# Set up environment
+cp .env.example .env
+php artisan key:generate
+
+# Run migrations and seed demo data
 php artisan migrate
 php artisan db:seed --class=ScriptingSeeder
+
+# Start development server
 php artisan serve
 ```
+
+### Production Setup
+See [DEPLOYMENT.md](DEPLOYMENT.md) for complete production deployment instructions.
 
 ## Configuration
 
@@ -99,14 +124,17 @@ php artisan test --group=security
 php artisan test --group=performance
 ```
 
-## Monitoring
+## Monitoring & Analytics
 
-The solution includes comprehensive monitoring:
+The solution includes comprehensive monitoring and analytics:
 
-- **Execution Metrics**: Performance and resource usage
-- **Error Tracking**: Failed executions and exceptions
-- **Security Events**: Authentication and authorization logs
-- **Resource Usage**: CPU, memory, and database queries
+- **Real-time Dashboard**: Live metrics and performance indicators
+- **Execution Metrics**: Performance and resource usage tracking
+- **Error Tracking**: Failed executions and detailed exception analysis
+- **Security Events**: Authentication, authorization, and security violation logs
+- **Resource Usage**: CPU, memory, and database query monitoring
+- **Health Checks**: System health endpoints for infrastructure monitoring
+- **Alert System**: Configurable alerts for performance and security thresholds
 
 ## API Documentation
 
