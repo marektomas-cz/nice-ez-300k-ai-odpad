@@ -12,7 +12,6 @@ This guide provides comprehensive instructions for deploying the NICE Scripting 
 - **Database**: MySQL 8.0+ or PostgreSQL 13+
 - **Redis**: 6.0+ (for caching and queues)
 - **Web Server**: Nginx or Apache
-- **V8Js Extension**: Required for JavaScript execution
 - **Docker**: 20.10+ (for containerized deployment)
 - **Docker Compose**: 2.0+ (for orchestration)
 
@@ -25,17 +24,83 @@ This guide provides comprehensive instructions for deploying the NICE Scripting 
 ### Required PHP Extensions
 ```bash
 # Install required extensions
-sudo apt-get install php8.1-cli php8.1-fpm php8.1-mysql php8.1-redis php8.1-xml php8.1-mbstring php8.1-curl php8.1-zip php8.1-gd
-
-# Install V8Js extension
-sudo apt-get install php8.1-v8js
+sudo apt-get install php8.1-cli php8.1-fpm php8.1-mysql php8.1-redis php8.1-xml php8.1-mbstring php8.1-curl php8.1-zip php8.1-gd php8.1-bcmath
 ```
 
-## Installation
+## Docker Deployment (Recommended)
+
+### Quick Start with Docker Compose
+
+```bash
+# Clone repository
+git clone https://github.com/your-org/nice-scripting-solution.git
+cd nice-scripting-solution
+
+# Configure environment
+cp .env.example .env
+# Edit .env file with your configuration
+
+# Build and start services
+docker-compose up -d
+
+# Install dependencies
+docker-compose exec app composer install
+
+# Run migrations
+docker-compose exec app php artisan migrate --force
+docker-compose exec app php artisan db:seed --class=RolePermissionSeeder
+
+# Generate application key
+docker-compose exec app php artisan key:generate
+```
+
+### Production Docker Deployment
+
+```bash
+# Build production image
+docker build --target production -t nice-scripting-solution:latest .
+
+# Run with production configuration
+docker-compose -f docker-compose.prod.yml up -d
+
+# Monitor services
+docker-compose ps
+docker-compose logs -f
+```
+
+### Docker Services Overview
+- **app**: Main Laravel application (PHP-FPM)
+- **nginx**: Web server and reverse proxy
+- **mysql**: MySQL database
+- **redis**: Cache and queue backend
+- **worker**: Queue worker processes
+- **scheduler**: Cron job scheduler
+
+### Container Resource Limits
+```yaml
+# Configured resource limits
+app:
+  limits:
+    cpus: '1.0'
+    memory: 1G
+  reservations:
+    cpus: '0.5'
+    memory: 512M
+
+worker:
+  limits:
+    cpus: '0.5'
+    memory: 512M
+  reservations:
+    cpus: '0.25'
+    memory: 256M
+```
+
+## Manual Installation
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/marektomas-cz/nice-ez-300k-ai-odpad.git nice-scripting-solution
+git clone https://github.com/your-org/nice-scripting-solution.git
 cd nice-scripting-solution
 ```
 
@@ -43,9 +108,6 @@ cd nice-scripting-solution
 ```bash
 # Install PHP dependencies
 composer install --no-dev --optimize-autoloader
-
-# Verify V8Js extension is installed
-php -m | grep v8js
 
 # Install Node.js dependencies (if using build tools)
 npm install --production
@@ -111,14 +173,6 @@ SCRIPT_ERROR_RATE_THRESHOLD=0.1
 SCRIPT_AVG_TIME_THRESHOLD=5.0
 SCRIPT_MEMORY_THRESHOLD=0.8
 SCRIPT_CONCURRENT_THRESHOLD=8
-
-# Mail
-MAIL_MAILER=smtp
-MAIL_HOST=your-smtp-host
-MAIL_PORT=587
-MAIL_USERNAME=your-email
-MAIL_PASSWORD=your-password
-MAIL_ENCRYPTION=tls
 ```
 
 ### 4. Database Setup
@@ -140,71 +194,6 @@ chmod -R 775 storage bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache
 ```
 
-## Docker Deployment (Recommended)
-
-### Quick Start with Docker Compose
-```bash
-# Clone repository
-git clone https://github.com/marektomas-cz/nice-ez-300k-ai-odpad.git nice-scripting-solution
-cd nice-scripting-solution
-
-# Configure environment
-cp .env.example .env
-# Edit .env file with your configuration
-
-# Build and start services
-docker-compose up -d
-
-# Run migrations
-docker-compose exec app php artisan migrate --force
-docker-compose exec app php artisan db:seed --class=RolePermissionSeeder
-
-# Generate application key
-docker-compose exec app php artisan key:generate
-```
-
-### Production Docker Deployment
-```bash
-# Build production image
-docker build -t nice-scripting-solution:latest --target production .
-
-# Run with production configuration
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-
-# Monitor services
-docker-compose ps
-docker-compose logs -f
-```
-
-### Docker Services Overview
-- **app**: Main Laravel application (PHP-FPM)
-- **nginx**: Web server and reverse proxy
-- **db**: MySQL database
-- **redis**: Cache and queue backend
-- **worker**: Queue worker processes
-- **scheduler**: Cron job scheduler
-- **monitor**: Prometheus monitoring
-
-### Container Resource Limits
-```yaml
-# Configured resource limits
-app:
-  limits:
-    cpus: '1.0'
-    memory: 1G
-  reservations:
-    cpus: '0.5'
-    memory: 512M
-
-worker:
-  limits:
-    cpus: '0.5'
-    memory: 512M
-  reservations:
-    cpus: '0.25'
-    memory: 256M
-```
-
 ## CI/CD Pipeline
 
 ### GitHub Actions Workflow
@@ -212,71 +201,36 @@ The project includes a comprehensive CI/CD pipeline with the following stages:
 
 #### 1. Test Matrix
 - **Multi-PHP Testing**: PHP 8.1, 8.2, 8.3
-- **Database Testing**: MySQL 8.0, PostgreSQL 13
+- **Database Testing**: MySQL 8.0
 - **Redis Testing**: Redis 7.0
-- **V8Js Integration**: Automated V8Js installation and testing
+- **AST Security Analysis**: Automated security scanning
 
 #### 2. Security Scanning
 - **Static Analysis**: PHPStan level 8 analysis
 - **Security Audit**: Composer audit for vulnerabilities
 - **Code Quality**: Laravel Pint formatting checks
-- **Secret Scanning**: Automated secret detection
+- **Container Scanning**: Trivy vulnerability scanning
 
 #### 3. Docker Build
 - **Multi-stage Build**: Development and production targets
 - **Security Scanning**: Container vulnerability scanning
-- **Registry Push**: Automated image publishing
+- **Health Checks**: Automated health verification
 
 #### 4. Deployment Stages
-- **Staging**: Automated deployment to staging environment
-- **Production**: Manual approval for production deployment
-- **Rollback**: Automated rollback capabilities
-
-### Manual Deployment Trigger
-```bash
-# Trigger deployment manually
-gh workflow run deploy.yml --ref main
-
-# Check deployment status
-gh run list --workflow=deploy.yml
-```
+- **Test**: Automated testing across environments
+- **Code Quality**: Quality assurance checks
+- **Security**: Security vulnerability scanning
+- **Docker**: Container build and test
 
 ## Web Server Configuration
 
-### Nginx Configuration
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-    root /var/www/nice-scripting-solution/public;
-
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-Content-Type-Options "nosniff";
-
-    index index.php;
-
-    charset utf-8;
-
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
-
-    error_page 404 /index.php;
-
-    location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
-        include fastcgi_params;
-    }
-
-    location ~ /\.(?!well-known).* {
-        deny all;
-    }
-}
-```
+### Nginx Configuration (Docker)
+The included Docker configuration provides:
+- SSL/TLS termination
+- Rate limiting
+- Security headers
+- Static asset optimization
+- Health check endpoints
 
 ### SSL/TLS Configuration
 ```nginx
@@ -288,20 +242,24 @@ server {
     ssl_certificate /etc/ssl/certs/your-domain.crt;
     ssl_certificate_key /etc/ssl/private/your-domain.key;
     
-    # ... rest of configuration
-}
-
-# Redirect HTTP to HTTPS
-server {
-    listen 80;
-    server_name your-domain.com;
-    return 301 https://$server_name$request_uri;
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 }
 ```
 
 ## Process Management
 
-### Supervisor Configuration
+### Supervisor Configuration (Docker)
+The Docker setup includes Supervisor for process management:
+- **nginx**: Web server
+- **php-fpm**: PHP FastCGI Process Manager
+- **laravel-worker**: Queue worker processes
+- **laravel-schedule**: Cron job scheduler
+
+### Manual Supervisor Configuration
 ```ini
 # /etc/supervisor/conf.d/nice-scripting-queue.conf
 [program:nice-scripting-queue]
@@ -310,19 +268,8 @@ command=php /var/www/nice-scripting-solution/artisan queue:work redis --sleep=3 
 directory=/var/www/nice-scripting-solution
 autostart=true
 autorestart=true
-stopasgroup=true
-killasgroup=true
 user=www-data
 numprocs=4
-redirect_stderr=true
-stdout_logfile=/var/log/nice-scripting-queue.log
-stopwaitsecs=3600
-```
-
-### Scheduled Tasks
-```bash
-# Add to crontab
-* * * * * cd /var/www/nice-scripting-solution && php artisan schedule:run >> /dev/null 2>&1
 ```
 
 ## Security Configuration
@@ -336,10 +283,6 @@ php artisan db:seed --class=RolePermissionSeeder
 php artisan tinker
 >>> $user = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => bcrypt('password')]);
 >>> $user->assignRole('super-admin');
-
-# Create client with proper permissions
->>> $client = Client::create(['name' => 'Default Client', 'slug' => 'default']);
->>> $user->clients()->attach($client->id);
 ```
 
 ### Secret Management Setup
@@ -355,7 +298,6 @@ php artisan tinker
 >>> $client = Client::first();
 >>> $secretManager = app(App\Services\Security\SecretManager::class);
 >>> $secretManager->storeSecret($client, 'api.key', 'secret_value', ['type' => 'api_key']);
->>> $secretManager->getSecret($client, 'api.key');
 ```
 
 ### Security Features Configuration
@@ -378,87 +320,6 @@ SECRET_ROTATION_ENABLED=true
 SECRET_EXPIRATION_DAYS=90
 ```
 
-### File Permissions
-```bash
-# Set proper ownership
-chown -R www-data:www-data /var/www/nice-scripting-solution
-
-# Set directory permissions
-find /var/www/nice-scripting-solution -type d -exec chmod 755 {} \;
-
-# Set file permissions
-find /var/www/nice-scripting-solution -type f -exec chmod 644 {} \;
-
-# Set executable permissions
-chmod +x /var/www/nice-scripting-solution/artisan
-```
-
-### Firewall Configuration
-```bash
-# UFW rules
-ufw allow 22/tcp
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw deny 3306/tcp
-ufw deny 6379/tcp
-ufw --force enable
-```
-
-### Application Security
-```bash
-# Clear and cache configuration
-php artisan config:clear
-php artisan config:cache
-
-# Clear and cache routes
-php artisan route:clear
-php artisan route:cache
-
-# Clear and cache views
-php artisan view:clear
-php artisan view:cache
-```
-
-## Monitoring and Logging
-
-### Log Configuration
-```bash
-# Create log directories
-mkdir -p /var/log/nice-scripting
-chown -R www-data:www-data /var/log/nice-scripting
-
-# Configure log rotation
-cat > /etc/logrotate.d/nice-scripting << EOF
-/var/log/nice-scripting/*.log {
-    daily
-    rotate 30
-    compress
-    delaycompress
-    missingok
-    notifempty
-    create 644 www-data www-data
-}
-EOF
-```
-
-### Health Checks
-```bash
-# Create health check script
-cat > /usr/local/bin/nice-scripting-health << 'EOF'
-#!/bin/bash
-response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/health)
-if [ $response -eq 200 ]; then
-    echo "OK"
-    exit 0
-else
-    echo "FAIL"
-    exit 1
-fi
-EOF
-
-chmod +x /usr/local/bin/nice-scripting-health
-```
-
 ## Database Optimization
 
 ### MySQL Configuration
@@ -468,62 +329,38 @@ CREATE DATABASE nice_scripting CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'nice_scripting'@'localhost' IDENTIFIED BY 'secure_password';
 GRANT ALL PRIVILEGES ON nice_scripting.* TO 'nice_scripting'@'localhost';
 FLUSH PRIVILEGES;
-
--- Optimize settings
-SET GLOBAL innodb_buffer_pool_size = 2G;
-SET GLOBAL innodb_log_file_size = 256M;
-SET GLOBAL max_connections = 200;
 ```
 
 ### Database Backup
 ```bash
-# Create backup script
-cat > /usr/local/bin/nice-scripting-backup << 'EOF'
+# Database backup script
 #!/bin/bash
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="/var/backups/nice-scripting"
 mkdir -p $BACKUP_DIR
 
 # Database backup
-mysqldump -u nice_scripting -p nice_scripting > $BACKUP_DIR/database_$DATE.sql
+docker-compose exec mysql mysqldump -u nice_scripting -p nice_scripting > $BACKUP_DIR/database_$DATE.sql
 
 # Storage backup
-tar -czf $BACKUP_DIR/storage_$DATE.tar.gz /var/www/nice-scripting-solution/storage
+docker-compose exec app tar -czf - /var/www/storage > $BACKUP_DIR/storage_$DATE.tar.gz
 
 # Cleanup old backups (keep 7 days)
 find $BACKUP_DIR -type f -mtime +7 -delete
-EOF
-
-chmod +x /usr/local/bin/nice-scripting-backup
-
-# Add to crontab
-0 2 * * * /usr/local/bin/nice-scripting-backup
 ```
 
 ## Performance Optimization
 
-### PHP Configuration
-```ini
-# /etc/php/8.1/fpm/php.ini
-memory_limit = 256M
-max_execution_time = 300
-max_input_time = 300
-upload_max_filesize = 10M
-post_max_size = 10M
-max_file_uploads = 20
-
-# OPcache configuration
-opcache.enable=1
-opcache.memory_consumption=128
-opcache.interned_strings_buffer=8
-opcache.max_accelerated_files=4000
-opcache.revalidate_freq=2
-opcache.fast_shutdown=1
-```
+### PHP Configuration (Docker)
+The Docker setup includes optimized PHP configuration:
+- **OPcache**: Enabled with production settings
+- **Memory limits**: Configured for production workloads
+- **Security**: Disabled dangerous functions
+- **Performance**: Optimized for production
 
 ### Redis Configuration
 ```conf
-# /etc/redis/redis.conf
+# Redis configuration
 maxmemory 1gb
 maxmemory-policy allkeys-lru
 save 900 1
@@ -531,163 +368,102 @@ save 300 10
 save 60 10000
 ```
 
-## Monitoring Integration
+## Monitoring and Logging
 
-### Prometheus Metrics
-```yaml
-# prometheus.yml
-global:
-  scrape_interval: 15s
+### Health Checks
+```bash
+# Health check endpoint
+curl http://localhost/health
 
-scrape_configs:
-  - job_name: 'nice-scripting'
-    static_configs:
-      - targets: ['localhost:9090']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
-```
-
-### Grafana Dashboard
-```json
+# Expected response:
 {
-  "dashboard": {
-    "title": "NICE Scripting Solution",
-    "panels": [
-      {
-        "title": "Script Executions",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "rate(script_executions_total[5m])",
-            "legendFormat": "Executions/sec"
-          }
-        ]
-      },
-      {
-        "title": "Error Rate",
-        "type": "singlestat",
-        "targets": [
-          {
-            "expr": "rate(script_errors_total[5m]) / rate(script_executions_total[5m])",
-            "legendFormat": "Error Rate"
-          }
-        ]
-      }
-    ]
-  }
+    "status": "healthy",
+    "timestamp": "2024-01-01T00:00:00Z",
+    "services": {
+        "database": "healthy",
+        "redis": "healthy",
+        "queue": "healthy"
+    }
 }
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-#### V8Js Installation Issues
+### Log Management
 ```bash
-# Ubuntu/Debian
-sudo apt-get install libv8-dev
-sudo pecl install v8js
+# Docker logs
+docker-compose logs -f app
+docker-compose logs -f nginx
+docker-compose logs -f mysql
 
-# Add to php.ini
-extension=v8js.so
+# Application logs
+docker-compose exec app tail -f storage/logs/laravel.log
 ```
-
-#### Permission Issues
-```bash
-# Fix ownership
-chown -R www-data:www-data /var/www/nice-scripting-solution
-
-# Fix permissions
-chmod -R 755 /var/www/nice-scripting-solution
-chmod -R 775 /var/www/nice-scripting-solution/storage
-chmod -R 775 /var/www/nice-scripting-solution/bootstrap/cache
-```
-
-#### Database Connection Issues
-```bash
-# Test database connection
-php artisan tinker
->>> DB::connection()->getPdo();
-```
-
-### Log Locations
-- Application logs: `/var/www/nice-scripting-solution/storage/logs/`
-- Nginx logs: `/var/log/nginx/`
-- PHP-FPM logs: `/var/log/php8.1-fpm.log`
-- Supervisor logs: `/var/log/supervisor/`
 
 ## Maintenance
 
 ### Regular Tasks
 ```bash
-# Daily maintenance
-php artisan cache:clear
-php artisan queue:restart
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+# Docker maintenance
+docker-compose exec app php artisan cache:clear
+docker-compose exec app php artisan queue:restart
+docker-compose exec app php artisan config:cache
+docker-compose exec app php artisan route:cache
+docker-compose exec app php artisan view:cache
 
-# Weekly maintenance
-php artisan scripts:cleanup-logs
-php artisan optimize:clear
-php artisan optimize
-
-# Monthly maintenance
-php artisan scripts:archive-old-executions
-php artisan scripts:cleanup-old-versions
-php artisan secrets:rotate-expired
-composer update --no-dev
-npm update
-```
-
-### Script Versioning Management
-```bash
-# Create script version
-php artisan tinker
->>> $script = Script::find(1);
->>> $version = $script->createVersion('Performance improvements');
-
-# List all versions
->>> $versions = $script->versions()->orderBy('created_at', 'desc')->get();
-
-# Rollback to specific version
->>> $script->rollbackToVersion($previousVersion->id);
-
-# Clean up old versions (keep last 10)
->>> ScriptVersion::where('script_id', $script->id)
-      ->orderBy('created_at', 'desc')
-      ->skip(10)
-      ->delete();
-```
-
-### Secret Management Maintenance
-```bash
-# Rotate expiring secrets
-php artisan secrets:rotate-expiring
-
-# Clean up expired secrets
-php artisan secrets:cleanup-expired
-
-# Security audit
-php artisan secrets:security-audit
-
-# Export secrets backup
-php artisan secrets:export --client=1 --output=/backup/secrets.enc
+# Container maintenance
+docker-compose exec app composer install --no-dev --optimize-autoloader
+docker system prune -f
 ```
 
 ### Updates
 ```bash
 # Update application
 git pull origin main
-composer install --no-dev --optimize-autoloader
-npm install --production
-npm run build
-php artisan migrate --force
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-php artisan queue:restart
+docker-compose build --no-cache
+docker-compose up -d
+docker-compose exec app php artisan migrate --force
+docker-compose exec app php artisan config:cache
+docker-compose exec app php artisan route:cache
+docker-compose exec app php artisan view:cache
+docker-compose exec app php artisan queue:restart
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+#### Permission Issues
+```bash
+# Fix Docker permissions
+docker-compose exec app chown -R www-data:www-data /var/www
+docker-compose exec app chmod -R 755 /var/www
+```
+
+#### Database Connection Issues
+```bash
+# Test database connection
+docker-compose exec app php artisan tinker
+>>> DB::connection()->getPdo();
+```
+
+#### Container Issues
+```bash
+# Check container status
+docker-compose ps
+
+# View container logs
+docker-compose logs app
+docker-compose logs nginx
+docker-compose logs mysql
+
+# Restart services
+docker-compose restart app
+```
+
+### Log Locations
+- **Application logs**: `docker-compose logs app`
+- **Nginx logs**: `docker-compose logs nginx`
+- **MySQL logs**: `docker-compose logs mysql`
+- **Redis logs**: `docker-compose logs redis`
 
 ## High Availability Setup
 
@@ -713,60 +489,49 @@ server {
 }
 ```
 
-### Database Replication
-```sql
--- Master configuration
-SET GLOBAL binlog_format = 'ROW';
-SET GLOBAL server_id = 1;
+### Docker Swarm Deployment
+```yaml
+# docker-compose.swarm.yml
+version: '3.8'
 
--- Slave configuration
-SET GLOBAL server_id = 2;
-CHANGE MASTER TO
-    MASTER_HOST='master-ip',
-    MASTER_USER='replication_user',
-    MASTER_PASSWORD='replication_password',
-    MASTER_LOG_FILE='mysql-bin.000001',
-    MASTER_LOG_POS=0;
-START SLAVE;
+services:
+  app:
+    image: nice-scripting-solution:latest
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
 ```
 
 ## Disaster Recovery
 
 ### Backup Strategy
-1. **Database**: Daily full backup, hourly incremental
+1. **Database**: Daily automated backups
 2. **Storage**: Daily backup of uploaded files
-3. **Code**: Git repository with tags for releases
-4. **Configuration**: Backup of environment files and server configs
+3. **Code**: Git repository with tagged releases
+4. **Configuration**: Backup of environment files
 
 ### Recovery Procedures
 1. **Database Recovery**: Restore from latest backup
 2. **File Recovery**: Restore storage from backup
-3. **Service Recovery**: Restart services in correct order
-4. **Verification**: Run health checks and smoke tests
+3. **Service Recovery**: Restart Docker services
+4. **Verification**: Run health checks
 
 ## Support
 
-### Health Check Endpoint
-```php
-// GET /health
-{
-    "status": "healthy",
-    "timestamp": "2024-01-01T00:00:00Z",
-    "services": {
-        "database": "healthy",
-        "redis": "healthy",
-        "queue": "healthy"
-    }
-}
-```
-
-### Metrics Endpoint
-```php
-// GET /metrics
-script_executions_total{status="success"} 1234
-script_executions_total{status="failed"} 56
-script_execution_duration_seconds{quantile="0.5"} 0.123
-script_execution_duration_seconds{quantile="0.95"} 0.456
-```
+### Health Check Endpoints
+- **GET /health**: Application health status
+- **GET /health/database**: Database connectivity
+- **GET /health/redis**: Redis connectivity
+- **GET /health/queue**: Queue worker status
 
 For additional support, please refer to the main README.md file or contact the development team.

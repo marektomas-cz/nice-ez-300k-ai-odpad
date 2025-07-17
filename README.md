@@ -10,14 +10,13 @@ The solution follows a layered architecture with strict security boundaries:
 
 - **Client Interface Layer**: User-friendly script management with syntax highlighting
 - **Security Layer**: Permission validation, rate limiting, and input sanitization  
-- **Execution Engine**: V8Js sandbox with controlled API access
+- **Execution Engine**: AST-based secure JavaScript analysis
 - **Data Layer**: Comprehensive logging and audit trails
 
 ## Key Features
 
 ### 🔒 Security-First Design
-- **Sandboxed Execution**: V8Js isolated JavaScript environment
-- **AST Security Analysis**: Advanced Abstract Syntax Tree based code analysis
+- **AST Security Analysis**: Advanced Abstract Syntax Tree based code analysis using Peast parser
 - **Resource Limits**: CPU, memory, and execution time constraints
 - **API Gateway**: Controlled access to database and external services
 - **Role-Based Access Control**: Fine-grained permissions using Spatie Laravel Permission
@@ -26,7 +25,7 @@ The solution follows a layered architecture with strict security boundaries:
 
 ### 🚀 Performance & Scalability
 - **Async Execution**: Non-blocking script execution
-- **Resource Monitoring**: Real-time performance metrics with Prometheus
+- **Resource Monitoring**: Real-time performance metrics
 - **Queue Integration**: Background processing for heavy tasks
 - **Caching Layer**: Optimized script compilation and data access
 - **Container Orchestration**: Docker-based deployment with resource limits
@@ -45,18 +44,15 @@ The solution follows a layered architecture with strict security boundaries:
 
 ### Prerequisites
 - PHP 8.1+
-- V8Js PHP extension
 - Composer
 - Laravel 10.x
 - Redis (recommended for production)
+- Docker & Docker Compose (for containerized deployment)
 
-### Quick Start
+### Quick Start (Development)
 ```bash
 # Install dependencies
 composer install
-
-# Install V8Js extension (Ubuntu/Debian)
-sudo apt-get install php8.1-v8js
 
 # Set up environment
 cp .env.example .env
@@ -68,6 +64,21 @@ php artisan db:seed --class=ScriptingSeeder
 
 # Start development server
 php artisan serve
+```
+
+### Docker Development Setup
+```bash
+# Build and start containers
+docker-compose up -d
+
+# Install dependencies
+docker-compose exec app composer install
+
+# Run migrations
+docker-compose exec app php artisan migrate
+
+# Access application
+open http://localhost:8080
 ```
 
 ### Production Setup
@@ -144,10 +155,10 @@ $versions = $script->versions()->orderBy('created_at', 'desc')->get();
 - **Rate Limiting**: Per-user and per-client execution limits
 
 ### Script Security
-- **AST-based Analysis**: Advanced Abstract Syntax Tree security analysis
+- **AST-based Analysis**: Advanced Abstract Syntax Tree security analysis using Peast parser
 - **Whitelist/Blacklist Patterns**: Configurable security patterns for allowed/forbidden operations
 - **Input Validation**: All script inputs are sanitized and validated
-- **Execution Sandbox**: V8Js isolated environment prevents system access
+- **Execution Sandbox**: Isolated environment prevents system access
 - **Resource Limits**: CPU, memory, and execution time constraints
 
 ### Secret Management
@@ -174,6 +185,9 @@ php artisan test --group=security
 
 # Run performance tests
 php artisan test --group=performance
+
+# Run tests in Docker
+docker-compose exec app php artisan test
 ```
 
 ## CI/CD & Deployment
@@ -182,24 +196,48 @@ The project includes a comprehensive CI/CD pipeline:
 
 ### GitHub Actions Pipeline
 - **Multi-PHP Testing**: Tests across PHP 8.1, 8.2, and 8.3
-- **Dependency Installation**: V8Js and all required extensions
 - **Security Scanning**: SAST analysis and vulnerability scanning
 - **Code Quality**: PHPStan, PHPUnit, and Laravel Pint
 - **Docker Build**: Multi-stage container builds
-- **Deployment**: Automated deployment to staging and production
+- **Dependency Auditing**: Automated security vulnerability checks
 
 ### Container Orchestration
 - **Docker Compose**: Complete stack deployment
 - **Resource Limits**: CPU and memory constraints
 - **Health Checks**: Application and service health monitoring
 - **Service Discovery**: Nginx reverse proxy and load balancing
-- **Monitoring**: Prometheus metrics collection
+- **Monitoring**: Application performance monitoring
 
 ### Infrastructure as Code
 - **Dockerfiles**: Multi-stage builds for production and development
 - **Configuration Management**: Environment-specific configurations
 - **Secret Management**: Secure credential handling
 - **Backup Strategies**: Database and application data backups
+
+## Docker Production Deployment
+
+### Build and Deploy
+```bash
+# Build production image
+docker build --target production -t nice-scripting-solution:latest .
+
+# Run with docker-compose
+docker-compose -f docker-compose.prod.yml up -d
+
+# Check health
+curl http://localhost/health
+```
+
+### Environment Variables
+```env
+APP_ENV=production
+APP_DEBUG=false
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_DATABASE=scripting_solution
+REDIS_HOST=redis
+QUEUE_CONNECTION=redis
+```
 
 ## Monitoring & Analytics
 
@@ -212,7 +250,6 @@ The solution includes comprehensive monitoring and analytics:
 - **Resource Usage**: CPU, memory, and database query monitoring
 - **Health Checks**: System health endpoints for infrastructure monitoring
 - **Alert System**: Configurable alerts for performance and security thresholds
-- **Prometheus Integration**: Advanced metrics collection and visualization
 
 ## API Documentation
 
